@@ -43,7 +43,7 @@ static Size BogusGetChunkSpace(void *pointer);
 	[id].get_chunk_context = BogusGetChunkContext, \
 	[id].get_chunk_space = BogusGetChunkSpace
 
-static const MemoryContextMethods mcxt_methods[] = {
+static const MemoryContextMethods mcxt_methods[] = { /// 这个是函数数组，指向不同的分配策略中，一次性初始化完成，就不会改变了。一共支持 16 种分配策略，目前只使用几种。
 	/* aset.c */
 	[MCTX_ASET_ID].alloc = AllocSetAlloc,
 	[MCTX_ASET_ID].free_p = AllocSetFree,
@@ -140,7 +140,7 @@ static const MemoryContextMethods mcxt_methods[] = {
  * CurrentMemoryContext
  *		Default memory context for allocations.
  */
-MemoryContext CurrentMemoryContext = NULL;
+MemoryContext CurrentMemoryContext = NULL; /// 全局变量，指向当前的内存池
 
 /*
  * Standard top-level contexts. For a description of the purpose of each
@@ -183,12 +183,12 @@ static void MemoryContextStatsPrint(MemoryContext context, void *passthru,
 	mcxt_methods[GetMemoryChunkMethodID(pointer)].method
 
 /*
- * GetMemoryChunkMethodID
+ * GetMemoryChunkMethodID  /// 根据一个内存片的指针就可以获得它是使用哪种分配测率获得的。
  *		Return the MemoryContextMethodID from the uint64 chunk header which
  *		directly precedes 'pointer'.
  */
-static inline MemoryContextMethodID
-GetMemoryChunkMethodID(const void *pointer)
+static inline MemoryContextMethodID /// typedef enum MemoryContextMethodID，返回值就是函数数组的下标。
+GetMemoryChunkMethodID(const void *pointer) /// 在 pointer 指针之前，紧挨着它，有一个 8 字节的内存，里面包含分配策略的信息。
 {
 	uint64		header;
 
@@ -202,12 +202,12 @@ GetMemoryChunkMethodID(const void *pointer)
 	/* Allow access to the uint64 header */
 	VALGRIND_MAKE_MEM_DEFINED((char *) pointer - sizeof(uint64), sizeof(uint64));
 
-	header = *((const uint64 *) ((const char *) pointer - sizeof(uint64)));
+	header = *((const uint64 *) ((const char *) pointer - sizeof(uint64))); /// 往前移动 8 个字节就拿到了 header 的指针。
 
 	/* Disallow access to the uint64 header */
 	VALGRIND_MAKE_MEM_NOACCESS((char *) pointer - sizeof(uint64), sizeof(uint64));
 
-	return (MemoryContextMethodID) (header & MEMORY_CONTEXT_METHODID_MASK);
+	return (MemoryContextMethodID) (header & MEMORY_CONTEXT_METHODID_MASK); /// MEMORY_CONTEXT_METHODID_MASK = 0F:00:00:00:00:00:00:00
 }
 
 /*
@@ -217,7 +217,7 @@ GetMemoryChunkMethodID(const void *pointer)
  * This is only used after GetMemoryChunkMethodID, so no need for error checks.
  */
 static inline uint64
-GetMemoryChunkHeader(const void *pointer)
+GetMemoryChunkHeader(const void *pointer) /// 直接获得某内存片开头“隐藏”的 8 字节的管理信息。
 {
 	uint64		header;
 
@@ -254,7 +254,7 @@ GetMemoryChunkHeader(const void *pointer)
  * before its children.
  */
 static MemoryContext
-MemoryContextTraverseNext(MemoryContext curr, MemoryContext top)
+MemoryContextTraverseNext(MemoryContext curr, MemoryContext top) /// 这是一个树形结构的遍历问题，不难理解。
 {
 	/* After processing a node, traverse to its first child if any */
 	if (curr->firstchild != NULL)
@@ -336,9 +336,9 @@ BogusGetChunkSpace(void *pointer)
  * In a standalone backend this must be called during backend startup.
  */
 void
-MemoryContextInit(void)
+MemoryContextInit(void) /// AllocSet 依然是缺省的内存管理方式。
 {
-	Assert(TopMemoryContext == NULL);
+	Assert(TopMemoryContext == NULL); /// 仅仅在 main.c 中调用了本函数。
 
 	/*
 	 * First, initialize TopMemoryContext, which is the parent of all others.
@@ -404,7 +404,7 @@ MemoryContextResetOnly(MemoryContext context)
 	Assert(MemoryContextIsValid(context));
 
 	/* Nothing to do if no pallocs since startup or last reset */
-	if (!context->isReset)
+	if (!context->isReset) /// 如果这个内存池创建之后没有使用过，isReset为 true，就啥也不做。
 	{
 		MemoryContextCallResetCallbacks(context);
 

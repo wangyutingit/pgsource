@@ -56,11 +56,11 @@ static void check_root(const char *progname);
  * Any Postgres server process begins execution here.
  */
 int
-main(int argc, char *argv[])
+main(int argc, char *argv[]) /// 这里是PostgreSQL主进程的入口函数。
 {
-	bool		do_check_root = true;
+	bool		do_check_root = true; /// 缺省情况下是要检查 root 的权限的，PG 禁止以 root 用户启动
 
-	reached_main = true;
+	reached_main = true; /// 表示已经进入到了main函数中了。
 
 	/*
 	 * If supported on the current platform, set up a handler to be called if
@@ -97,8 +97,8 @@ main(int argc, char *argv[])
 	 * localization of messages may not work right away, and messages won't go
 	 * anywhere but stderr until GUC settings get loaded.
 	 */
-	MyProcPid = getpid();
-	MemoryContextInit();
+	MyProcPid = getpid(); /// MyProcPid 里面保存了本进程的进程号。pid_t getpid(void); 这是一个系统调用
+	MemoryContextInit(); /// 初始化内存池。整个 PG 源代码中仅仅在这里调用了本函数。TopMemoryContext从这里开始有效。
 
 	/*
 	 * Set up locale information
@@ -144,12 +144,12 @@ main(int argc, char *argv[])
 	 */
 	if (argc > 1)
 	{
-		if (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-?") == 0)
+		if (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-?") == 0) /// 如果带参数--help 就显示帮助信息后退出
 		{
 			help(progname);
 			exit(0);
 		}
-		if (strcmp(argv[1], "--version") == 0 || strcmp(argv[1], "-V") == 0)
+		if (strcmp(argv[1], "--version") == 0 || strcmp(argv[1], "-V") == 0) /// 如果带参数--version 就显示版本信息后退出
 		{
 			fputs(PG_BACKEND_VERSIONSTR, stdout);
 			exit(0);
@@ -175,7 +175,7 @@ main(int argc, char *argv[])
 	 * Make sure we are not running as root, unless it's safe for the selected
 	 * option.
 	 */
-	if (do_check_root)
+	if (do_check_root) /// 如果需要检查是否以 root 用户启动，就检查一下。如果是 root 执行本程序，就直接退出了。
 		check_root(progname);
 
 	/*
@@ -196,7 +196,7 @@ main(int argc, char *argv[])
 		PostgresSingleUserMain(argc, argv,
 							   strdup(get_user_name_or_exit(progname)));
 	else
-		PostmasterMain(argc, argv);
+		PostmasterMain(argc, argv); /// 正常情况下走这个路径，进入 PostmasterMain 函数执行主进程的逻辑。
 	/* the functions above should not return */
 	abort();
 }
@@ -378,7 +378,7 @@ help(const char *progname)
 
 
 static void
-check_root(const char *progname)
+check_root(const char *progname) /// 分 Linux 平台和 Windows 平台，检查是否以 root 用户启动 PG。如果是，就退出整个程序。
 {
 #ifndef WIN32
 	if (geteuid() == 0)

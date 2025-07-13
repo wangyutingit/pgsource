@@ -187,7 +187,7 @@ BackgroundWorker *MyBgworkerEntry = NULL;
 
 
 /* The socket number we are listening for connections on */
-int			PostPortNumber = DEF_PGPORT;
+int			PostPortNumber = DEF_PGPORT; ///定义在这里：include/pg_config.h:#define DEF_PGPORT 5432
 
 /* The directory names for Unix socket(s) */
 char	   *Unix_socket_directories;
@@ -486,7 +486,7 @@ HANDLE		PostmasterHandle;
  * Postmaster main entry point
  */
 void
-PostmasterMain(int argc, char *argv[])
+PostmasterMain(int argc, char *argv[]) /// 这里是真正的主进程入口函数，由 main()进行调用，进入到这里。
 {
 	int			opt;
 	int			status;
@@ -494,7 +494,7 @@ PostmasterMain(int argc, char *argv[])
 	bool		listen_addr_saved = false;
 	char	   *output_config_variable = NULL;
 
-	InitProcessGlobals();
+	InitProcessGlobals(); /// 做一些简单的初始化的工作，主要是记录本进程启动的时间戳，产生一个随机值。
 
 	PostmasterPid = MyProcPid;
 
@@ -526,7 +526,7 @@ PostmasterMain(int argc, char *argv[])
 	PostmasterContext = AllocSetContextCreate(TopMemoryContext,
 											  "Postmaster",
 											  ALLOCSET_DEFAULT_SIZES);
-	MemoryContextSwitchTo(PostmasterContext);
+	MemoryContextSwitchTo(PostmasterContext); /// 单独产生一个内存池，放在TopMemoryContext下面
 
 	/* Initialize paths to installation files */
 	getInstallationPaths(argv[0]);
@@ -2031,7 +2031,7 @@ ClosePostmasterPorts(bool am_syslogger)
  * Called early in the postmaster and every backend.
  */
 void
-InitProcessGlobals(void)
+InitProcessGlobals(void) /// 记录启动时间，产生随机数
 {
 	MyStartTimestamp = GetCurrentTimestamp();
 	MyStartTime = timestamptz_to_time_t(MyStartTimestamp);
