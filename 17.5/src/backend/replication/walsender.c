@@ -107,10 +107,10 @@
  * because signals are checked only between messages.  128kB (with
  * default 8k blocks) seems like a reasonable guess for now.
  */
-#define MAX_SEND_SIZE (XLOG_BLCKSZ * 16)
+#define MAX_SEND_SIZE (XLOG_BLCKSZ * 16) /// 128KB是消息包的最大长度
 
 /* Array of WalSnds in shared memory */
-WalSndCtlData *WalSndCtl = NULL;
+WalSndCtlData *WalSndCtl = NULL; /// 这个指针指向了共享内存中的WalSnds数据结构
 
 /* My slot in the shared memory array */
 WalSnd	   *MyWalSnd = NULL;

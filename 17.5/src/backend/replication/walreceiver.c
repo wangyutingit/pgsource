@@ -180,11 +180,11 @@ ProcessWalRcvInterrupts(void)
 
 /* Main entry point for walreceiver process */
 void
-WalReceiverMain(char *startup_data, size_t startup_data_len)
+WalReceiverMain(char *startup_data, size_t startup_data_len) /// 本进程的入口函数。
 {
-	char		conninfo[MAXCONNINFO];
+	char		conninfo[MAXCONNINFO]; /// #define MAXCONNINFO		1024
 	char	   *tmp_conninfo;
-	char		slotname[NAMEDATALEN];
+	char		slotname[NAMEDATALEN]; /// #define NAMEDATALEN 64
 	bool		is_temp_slot;
 	XLogRecPtr	startpoint;
 	TimeLineID	startpointTLI;
@@ -199,7 +199,7 @@ WalReceiverMain(char *startup_data, size_t startup_data_len)
 	Assert(startup_data_len == 0);
 
 	MyBackendType = B_WAL_RECEIVER;
-	AuxiliaryProcessMainCommon();
+	AuxiliaryProcessMainCommon(); /// 辅助进程统一的初始化代码。
 
 	/*
 	 * WalRcv should be set up already (if we are a backend, we inherit this
