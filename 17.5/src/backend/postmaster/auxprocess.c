@@ -41,12 +41,12 @@ static void ShutdownAuxiliaryProcess(int code, Datum arg);
  *	 walwriter, walreceiver, and the startup process.
  */
 void
-AuxiliaryProcessMainCommon(void)
+AuxiliaryProcessMainCommon(void) /// 辅助进程统一的初始化代码。
 {
 	Assert(IsUnderPostmaster);
 
 	/* Release postmaster's working memory context */
-	if (PostmasterContext)
+	if (PostmasterContext) /// 删除PostmasterContext指向的内存池，这个是从父进程继承过来的。
 	{
 		MemoryContextDelete(PostmasterContext);
 		PostmasterContext = NULL;
