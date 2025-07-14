@@ -4313,7 +4313,7 @@ WriteControlFile(void)
 }
 
 static void
-ReadControlFile(void)
+ReadControlFile(void) /// 读取控制文件，就是$PGDATA/global/pg_control 这个文件
 {
 	pg_crc32c	crc;
 	int			fd;
@@ -4323,7 +4323,7 @@ ReadControlFile(void)
 	/*
 	 * Read data...
 	 */
-	fd = BasicOpenFile(XLOG_CONTROL_FILE,
+	fd = BasicOpenFile(XLOG_CONTROL_FILE,  /// #define XLOG_CONTROL_FILE	"global/pg_control" 控制文件
 					   O_RDWR | PG_BINARY);
 	if (fd < 0)
 		ereport(PANIC,

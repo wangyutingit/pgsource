@@ -87,7 +87,7 @@ RequestAddinShmemSpace(Size size)
  * required.
  */
 Size
-CalculateShmemSize(int *num_semaphores)
+CalculateShmemSize(int *num_semaphores) /// 
 {
 	Size		size;
 	int			numSemas;
@@ -212,7 +212,7 @@ CreateSharedMemoryAndSemaphores(void)
 	/*
 	 * Create the shmem segment
 	 */
-	seghdr = PGSharedMemoryCreate(size, &shim);
+	seghdr = PGSharedMemoryCreate(size, &shim); /// 这个创建共享内存的函数仅仅是主进程启动时执行一次。
 
 	/*
 	 * Make sure that huge pages are never reported as "unknown" while the

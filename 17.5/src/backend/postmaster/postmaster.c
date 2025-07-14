@@ -812,15 +812,15 @@ PostmasterMain(int argc, char *argv[]) /// 这里是真正的主进程入口函�
 	checkDataDir();
 
 	/* Check that pg_control exists */
-	checkControlFile();
+	checkControlFile(); /// 对控制文件进行初步检查，并不读取其中的内容
 
 	/* And switch working directory into it */
-	ChangeToDataDir();
+	ChangeToDataDir(); /// 把$PGDATA 当做本进程的当前目录，Current Work Directory
 
 	/*
 	 * Check for invalid combinations of GUC settings.
 	 */
-	if (SuperuserReservedConnections + ReservedConnections >= MaxConnections)
+	if (SuperuserReservedConnections + ReservedConnections >= MaxConnections) /// 检查关于连接数量的相关参数的设置。
 	{
 		write_stderr("%s: \"superuser_reserved_connections\" (%d) plus \"reserved_connections\" (%d) must be less than \"max_connections\" (%d)\n",
 					 progname,
@@ -828,7 +828,7 @@ PostmasterMain(int argc, char *argv[]) /// 这里是真正的主进程入口函�
 					 MaxConnections);
 		ExitPostmaster(1);
 	}
-	if (XLogArchiveMode > ARCHIVE_MODE_OFF && wal_level == WAL_LEVEL_MINIMAL)
+	if (XLogArchiveMode > ARCHIVE_MODE_OFF && wal_level == WAL_LEVEL_MINIMAL) /// 归档模式和 wal_level 的关系检查
 		ereport(ERROR,
 				(errmsg("WAL archival cannot be enabled when \"wal_level\" is \"minimal\"")));
 	if (max_wal_senders > 0 && wal_level == WAL_LEVEL_MINIMAL)
@@ -859,7 +859,7 @@ PostmasterMain(int argc, char *argv[]) /// 这里是真正的主进程入口函�
 
 	/* For debugging: display postmaster environment */
 	{
-		extern char **environ;
+		extern char **environ; /// 只有日志级别设置为 DEBUG3 或者更高，才显示本进程的环境变量，供排错使用。
 		char	  **p;
 
 		ereport(DEBUG3,
@@ -888,7 +888,7 @@ PostmasterMain(int argc, char *argv[]) /// 这里是真正的主进程入口函�
 	 * so it must happen before opening sockets so that at exit, the socket
 	 * lockfiles go away after CloseServerPorts runs.
 	 */
-	CreateDataDirLockFile(true);
+	CreateDataDirLockFile(true); /// 锁文件就是postmaster.pid ： define DIRECTORY_LOCK_FILE		"postmaster.pid"
 
 	/*
 	 * Read the control file (for error checking and config info).
@@ -974,7 +974,7 @@ PostmasterMain(int argc, char *argv[]) /// 这里是真正的主进程入口函�
 	 * normally choose the same IPC keys.  This helps ensure that we will
 	 * clean up dead IPC objects if the postmaster crashes and is restarted.
 	 */
-	CreateSharedMemoryAndSemaphores();
+	CreateSharedMemoryAndSemaphores(); /// 整个数据库集群运行过程中，这个函数只调用了一次。
 
 	/*
 	 * Estimate number of openable files.  This must happen after setting up
@@ -1491,7 +1491,7 @@ checkControlFile(void)
 	char		path[MAXPGPATH];
 	FILE	   *fp;
 
-	snprintf(path, sizeof(path), "%s/global/pg_control", DataDir);
+	snprintf(path, sizeof(path), "%s/global/pg_control", DataDir); /// $PGDATA/global/pg_control 这个是控制文件
 
 	fp = AllocateFile(path, PG_BINARY_R);
 	if (fp == NULL)

@@ -456,7 +456,7 @@ ChangeToDataDir(void)
 {
 	Assert(DataDir);
 
-	if (chdir(DataDir) < 0)
+	if (chdir(DataDir) < 0) /// chdir() changes the current working directory of the calling process to the directory specified in path.
 		ereport(FATAL,
 				(errcode_for_file_access(),
 				 errmsg("could not change directory to \"%s\": %m",
@@ -1508,7 +1508,7 @@ CreateLockFile(const char *filename, bool amPostmaster,
 void
 CreateDataDirLockFile(bool amPostmaster)
 {
-	CreateLockFile(DIRECTORY_LOCK_FILE, amPostmaster, "", true, DataDir);
+	CreateLockFile(DIRECTORY_LOCK_FILE, amPostmaster, "", true, DataDir); /// define DIRECTORY_LOCK_FILE		"postmaster.pid"
 }
 
 /*

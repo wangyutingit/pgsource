@@ -1108,7 +1108,7 @@ MemoryContextCreate(MemoryContext node,
 
 	/* Initialize all standard fields of memory context header */
 	node->type = tag;
-	node->isReset = true;
+	node->isReset = true; /// 这个函数初始化刚刚创立的内存池，所以 isReset 为 true。
 	node->methods = &mcxt_methods[method_id];
 	node->parent = parent;
 	node->firstchild = NULL;
