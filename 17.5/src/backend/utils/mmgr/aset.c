@@ -25,7 +25,7 @@
  *				Jan Wieck
  *
  *	Performance improvement from Tom Lane, 8/99: for extremely large request
- *	sizes, we do want to be able to give the memory back to free() as soon
+ *	sizes, we do want to be able to give the memory back to free() as soon /// 对于大于 8K 的内存，直接 malloc()和 free()，降低对内存的占用
  *	as it is pfree()'d.  Otherwise we risk tying up a lot of memory in
  *	freelist entries that might never be usable.  This is specially needed
  *	when the caller is repeatedly repalloc()'ing a block bigger and bigger;
@@ -151,10 +151,10 @@ typedef struct AllocFreeListLink
  */
 typedef struct AllocSetContext
 {
-	MemoryContextData header;	/* Standard memory-context fields */
+	MemoryContextData header;	/* Standard memory-context fields */ /// 标准头必须放在头部第一个位置
 	/* Info about storage allocated in this context: */
-	AllocBlock	blocks;			/* head of list of blocks in this set */
-	MemoryChunk *freelist[ALLOCSET_NUM_FREELISTS];	/* free chunk lists */
+	AllocBlock	blocks;			/* head of list of blocks in this set */ /// 指向内存块的链表
+	MemoryChunk *freelist[ALLOCSET_NUM_FREELISTS];	/* free chunk lists */ /// 11 个指针，0 表示 8 字节，10 表示 8192 字节
 	/* Allocation parameters for this context: */
 	uint32		initBlockSize;	/* initial block size */
 	uint32		maxBlockSize;	/* maximum block size */
@@ -274,11 +274,11 @@ static AllocSetFreeList context_freelists[2] =
  * ----------
  */
 static inline int
-AllocSetFreeIndex(Size size)
+AllocSetFreeIndex(Size size) /// size 是要寻找的内存片的字节数，根据 size 来找 freelist 的下标
 {
 	int			idx;
 
-	if (size > (1 << ALLOC_MINBITS))
+	if (size > (1 << ALLOC_MINBITS)) /// 如果申请的字节数小于 8，直接返回 0，#define ALLOC_MINBITS		3
 	{
 		/*----------
 		 * At this point we must compute ceil(log2(size >> ALLOC_MINBITS)).
@@ -316,7 +316,7 @@ AllocSetFreeIndex(Size size)
 		Assert(idx < ALLOCSET_NUM_FREELISTS);
 	}
 	else
-		idx = 0;
+		idx = 0; /// 这种情况比较少见，所以放在 else 分支，提高判断的速度
 
 	return idx;
 }
@@ -396,12 +396,12 @@ AllocSetContextCreateInternal(MemoryContext parent,
 			 initBlockSize == ALLOCSET_SMALL_INITSIZE)
 		freeListIndex = 1;
 	else
-		freeListIndex = -1;
+		freeListIndex = -1; /// 根据内存池的尺寸，确定是否将来把它放在 freeList上，0,1 是，-1 否
 
 	/*
 	 * If a suitable freelist entry exists, just recycle that context.
 	 */
-	if (freeListIndex >= 0)
+	if (freeListIndex >= 0) /// 如果是标准尺寸，就在 freelist 上找是否可以有重用的，避免再次 malloc。提高速度
 	{
 		AllocSetFreeList *freelist = &context_freelists[freeListIndex];
 
@@ -429,7 +429,7 @@ AllocSetContextCreateInternal(MemoryContext parent,
 		}
 	}
 
-	/* Determine size of initial block */
+	/* Determine size of initial block */ /// 如果没有找到，就要真刀真枪底调用 malloc 进行分配第一个数据块
 	firstBlockSize = MAXALIGN(sizeof(AllocSetContext)) +
 		ALLOC_BLOCKHDRSZ + ALLOC_CHUNKHDRSZ;
 	if (minContextSize != 0)
