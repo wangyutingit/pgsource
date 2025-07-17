@@ -1051,7 +1051,7 @@ PostmasterMain(int argc, char *argv[]) /// 这里是真正的主进程入口函�
 	/*
 	 * If enabled, start up syslogger collection subprocess
 	 */
-	SysLoggerPID = SysLogger_Start();
+	SysLoggerPID = SysLogger_Start(); /// 根据参数配置来决定是否启动日志搜集进程
 
 	/*
 	 * Reset whereToSendOutput from DestDebug (its starting state) to
@@ -1303,7 +1303,7 @@ PostmasterMain(int argc, char *argv[]) /// 这里是真正的主进程入口函�
 	/*
 	 * Load configuration files for client authentication.
 	 */
-	if (!load_hba())
+	if (!load_hba()) /// 读取 pg_hba.conf 配置文件中的信息，如果出错，整个进程就退出了。
 	{
 		/*
 		 * It makes no sense to continue if we fail to load the HBA file,
@@ -1311,9 +1311,9 @@ PostmasterMain(int argc, char *argv[]) /// 这里是真正的主进程入口函�
 		 */
 		ereport(FATAL,
 		/* translator: %s is a configuration file */
-				(errmsg("could not load %s", HbaFileName)));
+				(errmsg("could not load %s", HbaFileName))); /// extern PGDLLIMPORT char *HbaFileName;
 	}
-	if (!load_ident())
+	if (!load_ident()) /// 如果 pg_ident.conf不存在，也无所谓
 	{
 		/*
 		 * We can start up without the IDENT file, although it means that you
@@ -1355,7 +1355,7 @@ PostmasterMain(int argc, char *argv[]) /// 这里是真正的主进程入口函�
 	AddToDataDirLockFile(LOCK_FILE_LINE_PM_STATUS, PM_STATUS_STARTING);
 
 	/* Start bgwriter and checkpointer so they can help with recovery */
-	if (CheckpointerPID == 0)
+	if (CheckpointerPID == 0) /// 先启动 CheckPoint 进程和 Bgwriter 进程，确保 StartUp 进程能够正常工作。
 		CheckpointerPID = StartChildProcess(B_CHECKPOINTER);
 	if (BgWriterPID == 0)
 		BgWriterPID = StartChildProcess(B_BG_WRITER);
@@ -1363,7 +1363,7 @@ PostmasterMain(int argc, char *argv[]) /// 这里是真正的主进程入口函�
 	/*
 	 * We're ready to rock and roll...
 	 */
-	StartupPID = StartChildProcess(B_STARTUP);
+	StartupPID = StartChildProcess(B_STARTUP); /// 启动 Startup 进程，如果失败，整个数据库集群无法启动。
 	Assert(StartupPID != 0);
 	StartupStatus = STARTUP_RUNNING;
 	pmState = PM_STARTUP;
@@ -3939,7 +3939,7 @@ StartChildProcess(BackendType type)
 		 * immediately if starting other child types fails.
 		 */
 		if (type == B_STARTUP)
-			ExitPostmaster(1);
+			ExitPostmaster(1); /// 如果 startup 进程无法启动，就退出本进程。
 		return 0;
 	}
 

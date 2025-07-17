@@ -441,7 +441,7 @@ AllocSetContextCreateInternal(MemoryContext parent,
 	 * Allocate the initial block.  Unlike other aset.c blocks, it starts with
 	 * the context header and its block header follows that.
 	 */
-	set = (AllocSet) malloc(firstBlockSize);
+	set = (AllocSet) malloc(firstBlockSize); /// 这是真正从操作系统申请第一个数据块。
 	if (set == NULL)
 	{
 		if (TopMemoryContext)

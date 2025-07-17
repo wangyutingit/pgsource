@@ -600,7 +600,7 @@ SysLogger_Start(void)
 	SysloggerStartupData startup_data;
 #endif							/* EXEC_BACKEND */
 
-	if (!Logging_collector)
+	if (!Logging_collector) /// logging_collector参数的值是 true 或者 false，决定是否启动日志进程。
 		return 0;
 
 	/*

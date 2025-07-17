@@ -63,7 +63,7 @@ fork_process(void)
 	 * signal. With more analysis this could potentially be relaxed.
 	 */
 	sigprocmask(SIG_SETMASK, &BlockSig, &save_mask);
-	result = fork();
+	result = fork(); /// 这个是关键点，调用 fork()系统调用来创建子进程。
 	if (result == 0)
 	{
 		/* fork succeeded, in child */

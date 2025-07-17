@@ -6844,7 +6844,7 @@ update_checkpoint_display(int flags, bool restartpoint, bool reset)
 
 
 /*
- * Perform a checkpoint --- either during shutdown, or on-the-fly
+ * Perform a checkpoint --- either during shutdown, or on-the-fly /// 检查点分两种类型，shutdown 和 on-the-fly
  *
  * flags is a bitwise OR of the following:
  *	CHECKPOINT_IS_SHUTDOWN: checkpoint is for database shutdown.
@@ -7043,14 +7043,14 @@ CreateCheckPoint(int flags)
 	 * don't do this for a shutdown checkpoint, because in that case no WAL
 	 * can be written between the redo point and the insertion of the
 	 * checkpoint record itself, so the checkpoint record itself serves to
-	 * mark the redo point.
+	 * mark the redo point. /// 在 shutdown 时，只插入CheckPoint的WAL记录
 	 */
 	if (!shutdown)
 	{
 		/* Include WAL level in record for WAL summarizer's benefit. */
 		XLogBeginInsert();
-		XLogRegisterData((char *) &wal_level, sizeof(wal_level));
-		(void) XLogInsert(RM_XLOG_ID, XLOG_CHECKPOINT_REDO);
+		XLogRegisterData((char *) &wal_level, sizeof(wal_level)); /// 共 30 个字节,24+2+4，最后四个字节表示 WAL_LEVEL，1表示 replica, 2 表示 logical
+		(void) XLogInsert(RM_XLOG_ID, XLOG_CHECKPOINT_REDO); /// int wal_level，所以是 4 个字节。
 
 		/*
 		 * XLogInsertRecord will have updated XLogCtl->Insert.RedoRecPtr in
@@ -7168,7 +7168,7 @@ CreateCheckPoint(int flags)
 	}
 	pfree(vxids);
 
-	CheckPointGuts(checkPoint.redo, flags);
+	CheckPointGuts(checkPoint.redo, flags); /// 这个是 Checkpoint 主要做的工作。
 
 	vxids = GetVirtualXIDsDelayingChkpt(&nvxids, DELAY_CHKPT_COMPLETE);
 	if (nvxids > 0)

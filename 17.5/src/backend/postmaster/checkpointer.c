@@ -180,7 +180,7 @@ CheckpointerMain(char *startup_data, size_t startup_data_len)
 	MyBackendType = B_CHECKPOINTER;
 	AuxiliaryProcessMainCommon();
 
-	CheckpointerShmem->checkpointer_pid = MyProcPid;
+	CheckpointerShmem->checkpointer_pid = MyProcPid; /// 在检查点相关的共享内存中记录本进程的进程号pid。
 
 	/*
 	 * Properly accept or ignore signals the postmaster might send us
@@ -332,9 +332,9 @@ CheckpointerMain(char *startup_data, size_t startup_data_len)
 	/*
 	 * Loop forever
 	 */
-	for (;;)
+	for (;;) /// 无限循环。检查点进程伴随着整个数据库集群实例的生命周期而存在。
 	{
-		bool		do_checkpoint = false;
+		bool		do_checkpoint = false; /// 本变量表明是否需要执行一次检查点，每次循环时它的值都设置为 false。
 		int			flags = 0;
 		pg_time_t	now;
 		int			elapsed_secs;
@@ -356,7 +356,7 @@ CheckpointerMain(char *startup_data, size_t startup_data_len)
 		 * word in shared memory is nonzero.  We shouldn't need to acquire the
 		 * ckpt_lck for this.
 		 */
-		if (((volatile CheckpointerShmemStruct *) CheckpointerShmem)->ckpt_flags)
+		if (((volatile CheckpointerShmemStruct *) CheckpointerShmem)->ckpt_flags) /// 如果共享内存中的 ckpt_flags 被设置了，就执行检查点操作。
 		{
 			do_checkpoint = true;
 			chkpt_or_rstpt_requested = true;
@@ -370,7 +370,7 @@ CheckpointerMain(char *startup_data, size_t startup_data_len)
 		 */
 		now = (pg_time_t) time(NULL);
 		elapsed_secs = now - last_checkpoint_time;
-		if (elapsed_secs >= CheckPointTimeout)
+		if (elapsed_secs >= CheckPointTimeout) /// 因为超时，会触发检查点操作。
 		{
 			if (!do_checkpoint)
 				chkpt_or_rstpt_timed = true;
@@ -381,7 +381,7 @@ CheckpointerMain(char *startup_data, size_t startup_data_len)
 		/*
 		 * Do a checkpoint if requested.
 		 */
-		if (do_checkpoint)
+		if (do_checkpoint) /// 如果需要做一个检查点。
 		{
 			bool		ckpt_performed = false;
 			bool		do_restartpoint;

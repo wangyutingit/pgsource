@@ -241,7 +241,7 @@ postmaster_child_launch(BackendType child_type,
 							startup_data, startup_data_len, client_sock);
 	/* the child process will arrive in SubPostmasterMain */
 #else							/* !EXEC_BACKEND */
-	pid = fork_process();
+	pid = fork_process(); /// 核心就是调用 fork()来创建子进程
 	if (pid == 0)				/* child */
 	{
 		/* Close the postmaster's sockets */
