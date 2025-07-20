@@ -240,12 +240,14 @@ typedef struct AllocBlockData
  */
 #define MAX_FREE_CONTEXTS 100	/* arbitrary limit on freelist length */
 
+/// 就是指针往后移动AllocSetContext个字节，按 8 字节对齐
+/// MAXALIGN(sizeof(AllocSetContext))是 200个字节
 /* Obtain the keeper block for an allocation set */
 #define KeeperBlock(set) \
-	((AllocBlock) (((char *) set) + MAXALIGN(sizeof(AllocSetContext))))
+	((AllocBlock) (((char *) set) + MAXALIGN(sizeof(AllocSetContext)))) 
 
 /* Check if the block is the keeper block of the given allocation set */
-#define IsKeeperBlock(set, block) ((block) == (KeeperBlock(set)))
+#define IsKeeperBlock(set, block) ((block) == (KeeperBlock(set))) /// 所谓 keeper block 就是该内存池的第一个block.
 
 typedef struct AllocSetFreeList
 {
@@ -389,14 +391,14 @@ AllocSetContextCreateInternal(MemoryContext parent,
 	 * Check whether the parameters match either available freelist.  We do
 	 * not need to demand a match of maxBlockSize.
 	 */
-	if (minContextSize == ALLOCSET_DEFAULT_MINSIZE &&
-		initBlockSize == ALLOCSET_DEFAULT_INITSIZE)
+	if (minContextSize == ALLOCSET_DEFAULT_MINSIZE && /// #define ALLOCSET_DEFAULT_MINSIZE   0
+		initBlockSize == ALLOCSET_DEFAULT_INITSIZE) /// #define ALLOCSET_DEFAULT_INITSIZE  (8 * 1024)
 		freeListIndex = 0;
 	else if (minContextSize == ALLOCSET_SMALL_MINSIZE &&
 			 initBlockSize == ALLOCSET_SMALL_INITSIZE)
 		freeListIndex = 1;
 	else
-		freeListIndex = -1; /// 根据内存池的尺寸，确定是否将来把它放在 freeList上，0,1 是，-1 否
+		freeListIndex = -1; /// 根据内存池的尺寸，确定是否将来把它放在 freeList上，0,1 是，-1 否，0 和 1 是标准的大小两种常用的内存池
 
 	/*
 	 * If a suitable freelist entry exists, just recycle that context.
@@ -431,11 +433,11 @@ AllocSetContextCreateInternal(MemoryContext parent,
 
 	/* Determine size of initial block */ /// 如果没有找到，就要真刀真枪底调用 malloc 进行分配第一个数据块
 	firstBlockSize = MAXALIGN(sizeof(AllocSetContext)) +
-		ALLOC_BLOCKHDRSZ + ALLOC_CHUNKHDRSZ;
+		ALLOC_BLOCKHDRSZ + ALLOC_CHUNKHDRSZ; /// firstBlockSize 在这里是 256
 	if (minContextSize != 0)
 		firstBlockSize = Max(firstBlockSize, minContextSize);
 	else
-		firstBlockSize = Max(firstBlockSize, initBlockSize);
+		firstBlockSize = Max(firstBlockSize, initBlockSize); /// 在这里 firstBlockSize 的值是 8192
 
 	/*
 	 * Allocate the initial block.  Unlike other aset.c blocks, it starts with
@@ -459,9 +461,9 @@ AllocSetContextCreateInternal(MemoryContext parent,
 	 */
 
 	/* Fill in the initial block's block header */
-	block = KeeperBlock(set);
+	block = KeeperBlock(set); /// block指针指向了初始块，set的体积是 200 个字节
 	block->aset = set;
-	block->freeptr = ((char *) block) + ALLOC_BLOCKHDRSZ;
+	block->freeptr = ((char *) block) + ALLOC_BLOCKHDRSZ; /// 这是一个空白块，跳过块头就是可供分配使用的空闲内存
 	block->endptr = ((char *) set) + firstBlockSize;
 	block->prev = NULL;
 	block->next = NULL;
@@ -470,10 +472,10 @@ AllocSetContextCreateInternal(MemoryContext parent,
 	VALGRIND_MAKE_MEM_NOACCESS(block->freeptr, block->endptr - block->freeptr);
 
 	/* Remember block as part of block list */
-	set->blocks = block;
+	set->blocks = block; /// set->blocks 指向的是一个数据块组成的双向链表
 
 	/* Finish filling in aset-specific parts of the context header */
-	MemSetAligned(set->freelist, 0, sizeof(set->freelist));
+	MemSetAligned(set->freelist, 0, sizeof(set->freelist)); /// 把 freelist 的内容全部清零
 
 	set->initBlockSize = (uint32) initBlockSize;
 	set->maxBlockSize = (uint32) maxBlockSize;
@@ -509,6 +511,7 @@ AllocSetContextCreateInternal(MemoryContext parent,
 		   (Size) ((maxBlockSize - ALLOC_BLOCKHDRSZ) / ALLOC_CHUNK_FRACTION))
 		set->allocChunkLimit >>= 1;
 
+	/// 走到这里，set->allocChunkLimit的值是 8192
 	/* Finally, do the type-independent part of context creation */
 	MemoryContextCreate((MemoryContext) set,
 						T_AllocSetContext,

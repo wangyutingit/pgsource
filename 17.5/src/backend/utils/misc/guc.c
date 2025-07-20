@@ -1822,7 +1822,7 @@ SelectConfigFiles(const char *userDoption, const char *progname)
 	{
 		fname = guc_malloc(FATAL,
 						   strlen(configdir) + strlen(CONFIG_FILENAME) + 2);
-		sprintf(fname, "%s/%s", configdir, CONFIG_FILENAME);
+		sprintf(fname, "%s/%s", configdir, CONFIG_FILENAME); /// #define CONFIG_FILENAME "postgresql.conf"
 		fname_is_malloced = false;
 	}
 	else
@@ -1838,7 +1838,8 @@ SelectConfigFiles(const char *userDoption, const char *progname)
 	 * Set the ConfigFileName GUC variable to its final value, ensuring that
 	 * it can't be overridden later.
 	 */
-	SetConfigOption("config_file", fname, PGC_POSTMASTER, PGC_S_OVERRIDE);
+	SetConfigOption("config_file", fname, PGC_POSTMASTER, PGC_S_OVERRIDE); 
+	/// 上面的函数执行完毕后ConfigFileName就是/xxxx/xxxx/postgresql.conf
 
 	if (fname_is_malloced)
 		free(fname);

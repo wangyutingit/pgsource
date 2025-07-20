@@ -181,7 +181,7 @@ save_ps_display_args(int argc, char **argv)
 			}
 		}
 
-		ps_buffer = argv[0];
+		ps_buffer = argv[0]; /// DEBUG 典型的值是：/home/postgres/pg175/bin/postgres
 		last_status_len = ps_buffer_size = end_of_area - argv[0];
 
 		/*

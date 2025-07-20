@@ -70,12 +70,12 @@ main(int argc, char *argv[]) /// 这里是PostgreSQL主进程的入口函数。
 	pgwin32_install_crashdump_handler();
 #endif
 
-	progname = get_progname(argv[0]);
+	progname = get_progname(argv[0]); /// 去掉前面的路径，只返回 postgres
 
 	/*
 	 * Platform-specific startup hacks
 	 */
-	startup_hacks(progname);
+	startup_hacks(progname); /// 在 Linux 平台下啥也没有做
 
 	/*
 	 * Remember the physical location of the initially given argv[] array for
@@ -98,7 +98,7 @@ main(int argc, char *argv[]) /// 这里是PostgreSQL主进程的入口函数。
 	 * anywhere but stderr until GUC settings get loaded.
 	 */
 	MyProcPid = getpid(); /// MyProcPid 里面保存了本进程的进程号。pid_t getpid(void); 这是一个系统调用
-	MemoryContextInit(); /// 初始化内存池。整个 PG 源代码中仅仅在这里调用了本函数。TopMemoryContext从这里开始有效。
+	MemoryContextInit(); /// 初始化内存池。整个 PG 源代码中仅仅在这里调用了本函数。TopMemoryContext和ErrorContext从这里开始有效。
 
 	/*
 	 * Set up locale information
@@ -175,8 +175,8 @@ main(int argc, char *argv[]) /// 这里是PostgreSQL主进程的入口函数。
 	 * Make sure we are not running as root, unless it's safe for the selected
 	 * option.
 	 */
-	if (do_check_root) /// 如果需要检查是否以 root 用户启动，就检查一下。如果是 root 执行本程序，就直接退出了。
-		check_root(progname);
+	if (do_check_root) /// 如果需要检查是否以root用户启动，就检查一下。如果是root执行本程序，就直接退出了。
+		check_root(progname); /// progname = "postgres"
 
 	/*
 	 * Dispatch to one of various subprograms depending on first argument.
@@ -196,7 +196,7 @@ main(int argc, char *argv[]) /// 这里是PostgreSQL主进程的入口函数。
 		PostgresSingleUserMain(argc, argv,
 							   strdup(get_user_name_or_exit(progname)));
 	else
-		PostmasterMain(argc, argv); /// 正常情况下走这个路径，进入 PostmasterMain 函数执行主进程的逻辑。
+		PostmasterMain(argc, argv); ///正常情况下走这个路径，进入PostmasterMain函数执行主进程的逻辑。
 	/* the functions above should not return */
 	abort();
 }
@@ -215,7 +215,7 @@ main(int argc, char *argv[]) /// 这里是PostgreSQL主进程的入口函数。
  * without help.  Avoid adding more here, if you can.
  */
 static void
-startup_hacks(const char *progname)
+startup_hacks(const char *progname) /// 这个函数在 Linux 平台下就是一个空函数
 {
 	/*
 	 * Windows-specific execution environment hacking.
@@ -378,10 +378,11 @@ help(const char *progname)
 
 
 static void
-check_root(const char *progname) /// 分 Linux 平台和 Windows 平台，检查是否以 root 用户启动 PG。如果是，就退出整个程序。
+check_root(const char *progname) /// 分Linux平台和Windows平台，检查是否以root用户启动PG。如果是，就退出整个程序。
 {
 #ifndef WIN32
-	if (geteuid() == 0)
+	/// Linux平台的判断条件有两个，第一个是geteuid是否为0，第二个是判断geteuid和getuid是否相等。
+	if (geteuid() == 0) /// geteuid() returns the effective user ID of the calling process.
 	{
 		write_stderr("\"root\" execution of the PostgreSQL server is not permitted.\n"
 					 "The server must be started under an unprivileged user ID to prevent\n"
@@ -398,7 +399,7 @@ check_root(const char *progname) /// 分 Linux 平台和 Windows 平台，检查
 	 * trying to actively fix this situation seems more trouble than it's
 	 * worth; we'll just expend the effort to check for it.)
 	 */
-	if (getuid() != geteuid())
+	if (getuid() != geteuid()) /// getuid() returns the real user ID of the calling process.
 	{
 		write_stderr("%s: real and effective user IDs must match\n",
 					 progname);

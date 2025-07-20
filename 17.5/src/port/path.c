@@ -648,7 +648,7 @@ path_is_prefix_of_path(const char *path1, const char *path2)
  * stripped of .exe suffix if any
  */
 const char *
-get_progname(const char *argv0)
+get_progname(const char *argv0) /// 传进来的是带目录的文件名，/xxx/xxx/postgres
 {
 	const char *nodir_name;
 	char	   *progname;
@@ -663,7 +663,7 @@ get_progname(const char *argv0)
 	 * Make a copy in case argv[0] is modified by ps_status. Leaks memory, but
 	 * called only once.
 	 */
-	progname = strdup(nodir_name);
+	progname = strdup(nodir_name); /// 在这里只有 postgres，纯文件名了。
 	if (progname == NULL)
 	{
 		fprintf(stderr, "%s: out of memory\n", nodir_name);

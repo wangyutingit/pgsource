@@ -31,7 +31,7 @@
 /*
  * Each page of XLOG file has a header like this:
  */
-#define XLOG_PAGE_MAGIC 0xD116	/* can be used as WAL version indicator */
+#define XLOG_PAGE_MAGIC 0xD116	/* can be used as WAL version indicator */ /// 魔幻数，可以作为 WAL 格式的版本信息
 
 typedef struct XLogPageHeaderData
 {
@@ -144,7 +144,7 @@ typedef XLogLongPageHeaderData *XLogLongPageHeader;
 		((xlrp) % XLOG_BLCKSZ >= SizeOfXLogShortPHD)
 
 /*
- * The XLog directory and control file (relative to $PGDATA)
+ * The XLog directory and control file (relative to $PGDATA) /// 相对于数据库集群的目录
  */
 #define XLOGDIR				"pg_wal"
 #define XLOG_CONTROL_FILE	"global/pg_control"

@@ -206,7 +206,7 @@ static bool InRedo = false;
  * Codes indicating where we got a WAL file from during recovery, or where
  * to attempt to get one.
  */
-typedef enum
+typedef enum /// WAL记录的获取分为三个来源：pg_wal，归档目录，网络
 {
 	XLOG_FROM_ANY = 0,			/* request to read WAL from any source */
 	XLOG_FROM_ARCHIVE,			/* restored using restore_command */

@@ -345,7 +345,7 @@ checkDataDir(void)
 
 	Assert(DataDir);
 
-	if (stat(DataDir, &stat_buf) != 0)
+	if (stat(DataDir, &stat_buf) != 0) /// DataDir就是数据库集群的目录，譬如/home/postgres/pg175/data1
 	{
 		if (errno == ENOENT)
 			ereport(FATAL,
@@ -360,7 +360,7 @@ checkDataDir(void)
 	}
 
 	/* eventual chdir would fail anyway, but let's test ... */
-	if (!S_ISDIR(stat_buf.st_mode))
+	if (!S_ISDIR(stat_buf.st_mode)) /// 检查这个字符串是否是目录
 		ereport(FATAL,
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
 				 errmsg("specified data directory \"%s\" is not a directory",
@@ -1760,6 +1760,7 @@ RecheckDataDirLockFile(void)
  *
  * If compatible, return. Otherwise, ereport(FATAL).
  */
+/// 在编译源码时，会写死一个PG_VERSION的字符串。这个函数拿这个字符串和$PGDATA/PG_VERSION中的信息进行对比。
 void
 ValidatePgVersion(const char *path)
 {
@@ -1770,7 +1771,7 @@ ValidatePgVersion(const char *path)
 	long		my_major;
 	char	   *endptr;
 	char		file_version_string[64];
-	const char *my_version_string = PG_VERSION;
+	const char *my_version_string = PG_VERSION; /// src/include/pg_config.h:#define PG_VERSION "17.5"
 
 	my_major = strtol(my_version_string, &endptr, 10);
 

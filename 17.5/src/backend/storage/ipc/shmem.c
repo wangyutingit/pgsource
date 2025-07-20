@@ -97,7 +97,7 @@ static HTAB *ShmemIndex = NULL; /* primary index hashtable for shmem */
  * but we use void to avoid having to include ipc.h in shmem.h.
  */
 void
-InitShmemAccess(void *seghdr)
+InitShmemAccess(void *seghdr) /// 就是设置三个全局的指针，两个指向共享内存的头部，一个指向共享内存的尾部。
 {
 	PGShmemHeader *shmhdr = (PGShmemHeader *) seghdr;
 
@@ -235,7 +235,7 @@ ShmemAllocRaw(Size size, Size *allocated_size)
  * We consider maxalign, rather than cachealign, sufficient here.
  */
 void *
-ShmemAllocUnlocked(Size size)
+ShmemAllocUnlocked(Size size) /// 不使用锁的情况下从共享内存中分配一块，仅仅在共享内存创建之初调用。
 {
 	Size		newStart;
 	Size		newFree;
@@ -258,7 +258,7 @@ ShmemAllocUnlocked(Size size)
 						size)));
 	ShmemSegHdr->freeoffset = newFree;
 
-	newSpace = (void *) ((char *) ShmemBase + newStart);
+	newSpace = (void *) ((char *) ShmemBase + newStart); /// 仅仅是移动指针而已，速度很快
 
 	Assert(newSpace == (void *) MAXALIGN(newSpace));
 
@@ -271,7 +271,7 @@ ShmemAllocUnlocked(Size size)
  * Returns true if the pointer points within the shared memory segment.
  */
 bool
-ShmemAddrIsValid(const void *addr)
+ShmemAddrIsValid(const void *addr) /// 就是判断指针是否在ShmemBase和ShmemEnd之间，因为这两个指针分别指向头尾，固定不变。
 {
 	return (addr >= ShmemBase) && (addr < ShmemEnd);
 }

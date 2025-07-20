@@ -35,6 +35,7 @@
  * if the value you need to store could be many seconds.
  */
 
+/// microsecond是微秒，就是百万分之一秒 1/1,000,000 second
 typedef int64 Timestamp;
 typedef int64 TimestampTz;
 typedef int64 TimeOffset;

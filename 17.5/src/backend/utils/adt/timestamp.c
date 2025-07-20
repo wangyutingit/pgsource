@@ -1651,7 +1651,7 @@ pg_conf_load_time(PG_FUNCTION_ARGS)
  * full precision of the gettimeofday() syscall
  */
 TimestampTz
-GetCurrentTimestamp(void)
+GetCurrentTimestamp(void) /// 调用gettimeofday()获得时间信息
 {
 	TimestampTz result;
 	struct timeval tp;

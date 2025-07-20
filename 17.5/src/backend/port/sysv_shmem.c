@@ -493,7 +493,7 @@ GetHugePageSize(Size *hugepagesize, int *mmap_flags)
 #ifdef __linux__
 
 	{
-		FILE	   *fp = AllocateFile("/proc/meminfo", "r");
+		FILE	   *fp = AllocateFile("/proc/meminfo", "r"); /// 这段代码的逻辑就是读取/proc/meminfo中的“Hugepagesize:       2048 kB”这一行。
 		char		buf[128];
 		unsigned int sz;
 		char		ch;
@@ -537,7 +537,7 @@ GetHugePageSize(Size *hugepagesize, int *mmap_flags)
 		 * writing, there are no reports of any non-Linux systems being picky
 		 * about that.
 		 */
-		hugepagesize_local = 2 * 1024 * 1024;
+		hugepagesize_local = 2 * 1024 * 1024; /// 缺省值是2MB一个huge page
 	}
 
 	mmap_flags_local = MAP_HUGETLB;
@@ -598,7 +598,7 @@ check_huge_page_size(int *newval, void **extra, GucSource source)
 static void *
 CreateAnonymousSegment(Size *size)
 {
-	Size		allocsize = *size;
+	Size		allocsize = *size; /// 传入参数size里面包含了要申请的共享内存的大小
 	void	   *ptr = MAP_FAILED;
 	int			mmap_errno = 0;
 
@@ -606,7 +606,7 @@ CreateAnonymousSegment(Size *size)
 	/* PGSharedMemoryCreate should have dealt with this case */
 	Assert(huge_pages != HUGE_PAGES_ON);
 #else
-	if (huge_pages == HUGE_PAGES_ON || huge_pages == HUGE_PAGES_TRY)
+	if (huge_pages == HUGE_PAGES_ON || huge_pages == HUGE_PAGES_TRY) /// 如果huge_pages的参数是on或者try时，尝试使用huge page
 	{
 		/*
 		 * Round up the request size to a suitable large value.
@@ -614,13 +614,14 @@ CreateAnonymousSegment(Size *size)
 		Size		hugepagesize;
 		int			mmap_flags;
 
-		GetHugePageSize(&hugepagesize, &mmap_flags);
+		GetHugePageSize(&hugepagesize, &mmap_flags); /// 获取底层操作系统的huge page的尺寸，通常是hugepagesize = 2MB
 
 		if (allocsize % hugepagesize != 0)
-			allocsize += hugepagesize - (allocsize % hugepagesize);
+			allocsize += hugepagesize - (allocsize % hugepagesize); /// 把分配的尺寸按照hugepagesize进行取整
 
-		ptr = mmap(NULL, allocsize, PROT_READ | PROT_WRITE,
-				   PG_MMAP_FLAGS | mmap_flags, -1, 0);
+		ptr = mmap(NULL, allocsize, PROT_READ | PROT_WRITE, /// 共享内存中只包含数据，所以可读可写的权限就足够了。PROT_READ | PROT_WRITE
+				   PG_MMAP_FLAGS | mmap_flags, -1, 0); /// 真正创建共享内存的系统调用mmap()，mmap_flags返回值可能是MAP_HUGETLB，或者0。
+		/// #define PG_MMAP_FLAGS			(MAP_SHARED|MAP_ANONYMOUS|MAP_HASSEMAPHORE)
 		mmap_errno = errno;
 		if (huge_pages == HUGE_PAGES_TRY && ptr == MAP_FAILED)
 			elog(DEBUG1, "mmap(%zu) with MAP_HUGETLB failed, huge pages disabled: %m",
@@ -636,7 +637,7 @@ CreateAnonymousSegment(Size *size)
 	SetConfigOption("huge_pages_status", (ptr == MAP_FAILED) ? "off" : "on",
 					PGC_INTERNAL, PGC_S_DYNAMIC_DEFAULT);
 
-	if (ptr == MAP_FAILED && huge_pages != HUGE_PAGES_ON)
+	if (ptr == MAP_FAILED && huge_pages != HUGE_PAGES_ON) /// 如果创建共享内存失败，huge_pages不是on，则放弃使用huge page模式
 	{
 		/*
 		 * Use the original size, not the rounded-up value, when falling back
@@ -663,7 +664,7 @@ CreateAnonymousSegment(Size *size)
 						 allocsize) : 0));
 	}
 
-	*size = allocsize;
+	*size = allocsize; /// 把实际分配的共享内存尺寸保存在传入的参数size中。
 	return ptr;
 }
 
@@ -672,7 +673,7 @@ CreateAnonymousSegment(Size *size)
  * (called as an on_shmem_exit callback, hence funny argument list)
  */
 static void
-AnonymousShmemDetach(int status, Datum arg)
+AnonymousShmemDetach(int status, Datum arg) /// 调用munmap()系统调用来脱离共享内存
 {
 	/* Release anonymous shared memory block, if any. */
 	if (AnonymousShmem != NULL)
@@ -726,7 +727,7 @@ PGSharedMemoryCreate(Size size,
 #endif
 
 	/* For now, we don't support huge pages in SysV memory */
-	if (huge_pages == HUGE_PAGES_ON && shared_memory_type != SHMEM_TYPE_MMAP)
+	if (huge_pages == HUGE_PAGES_ON && shared_memory_type != SHMEM_TYPE_MMAP) /// 这两个参数不能有冲突
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				 errmsg("huge pages not supported with the current \"shared_memory_type\" setting")));
@@ -736,18 +737,19 @@ PGSharedMemoryCreate(Size size,
 
 	if (shared_memory_type == SHMEM_TYPE_MMAP)
 	{
+		/// AnonymousShmem是一个全局变量，保存由mmap()申请的共享内存。size中的值包含实际分配的共享内存的尺寸。
 		AnonymousShmem = CreateAnonymousSegment(&size);
 		AnonymousShmemSize = size;
 
 		/* Register on-exit routine to unmap the anonymous segment */
-		on_shmem_exit(AnonymousShmemDetach, (Datum) 0);
+		on_shmem_exit(AnonymousShmemDetach, (Datum) 0); /// 设置一下退出时执行的函数。
 
 		/* Now we need only allocate a minimal-sized SysV shmem block. */
-		sysvsize = sizeof(PGShmemHeader);
+		sysvsize = sizeof(PGShmemHeader); ///通常情况下，SystemV的共享内存只有几十个字节
 	}
 	else
 	{
-		sysvsize = size;
+		sysvsize = size; /// 如果不使用MMAP方式，sysvsize = size，等于整个共享内存的尺寸
 
 		/* huge pages are only available with mmap */
 		SetConfigOption("huge_pages_status", "off",
@@ -852,7 +854,7 @@ PGSharedMemoryCreate(Size size,
 	/*
 	 * Initialize space allocation status for segment.
 	 */
-	hdr->totalsize = size;
+	hdr->totalsize = size; /// size中包含真实的分配尺寸，而不是申请的尺寸
 	hdr->freeoffset = MAXALIGN(sizeof(PGShmemHeader));
 	*shim = hdr;
 

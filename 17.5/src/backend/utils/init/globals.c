@@ -42,9 +42,9 @@ volatile uint32 InterruptHoldoffCount = 0;
 volatile uint32 QueryCancelHoldoffCount = 0;
 volatile uint32 CritSectionCount = 0;
 
-int			MyProcPid;
-pg_time_t	MyStartTime;
-TimestampTz MyStartTimestamp;
+int			MyProcPid; /// 记录本进程的进程号pid
+pg_time_t	MyStartTime; /// typedef int64 pg_time_t;
+TimestampTz MyStartTimestamp; /// typedef int64 TimestampTz; 单位是微秒，百万分之一秒
 struct ClientSocket *MyClientSocket;
 struct Port *MyProcPort;
 int32		MyCancelKey;

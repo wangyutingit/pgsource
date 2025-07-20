@@ -34,7 +34,7 @@
 #endif
 
 
-typedef enum
+typedef enum /// 三种关闭模式
 {
 	SMART_MODE,
 	FAST_MODE,

@@ -200,7 +200,7 @@ CreateSharedMemoryAndSemaphores(void)
 {
 	PGShmemHeader *shim;
 	PGShmemHeader *seghdr;
-	Size		size;
+	Size		size;  /// typedef size_t Size; 8个字节
 	int			numSemas;
 
 	Assert(!IsUnderPostmaster);
@@ -213,6 +213,7 @@ CreateSharedMemoryAndSemaphores(void)
 	 * Create the shmem segment
 	 */
 	seghdr = PGSharedMemoryCreate(size, &shim); /// 这个创建共享内存的函数仅仅是主进程启动时执行一次。
+	/// 通常情况下，seghdr指向了mmap()分配的共享内存，开始的56个字节是PGShmemHeader结构。
 
 	/*
 	 * Make sure that huge pages are never reported as "unknown" while the
@@ -221,7 +222,7 @@ CreateSharedMemoryAndSemaphores(void)
 	Assert(strcmp("unknown",
 				  GetConfigOption("huge_pages_status", false, false)) != 0);
 
-	InitShmemAccess(seghdr);
+	InitShmemAccess(seghdr); /// 就是设置三个全局的指针，两个指向共享内存的头部，一个指向共享内存的尾部。
 
 	/*
 	 * Create semaphores

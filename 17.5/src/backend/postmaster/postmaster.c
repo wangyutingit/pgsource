@@ -486,7 +486,7 @@ HANDLE		PostmasterHandle;
  * Postmaster main entry point
  */
 void
-PostmasterMain(int argc, char *argv[]) /// 这里是真正的主进程入口函数，由 main()进行调用，进入到这里。
+PostmasterMain(int argc, char *argv[]) /// 这里是真正的主进程入口函数，由main()进行调用，进入到这里。
 {
 	int			opt;
 	int			status;
@@ -498,7 +498,7 @@ PostmasterMain(int argc, char *argv[]) /// 这里是真正的主进程入口函�
 
 	PostmasterPid = MyProcPid;
 
-	IsPostmasterEnvironment = true;
+	IsPostmasterEnvironment = true; /// 表明我们在postmaster进程当中
 
 	/*
 	 * Start our win32 signal implementation
@@ -526,10 +526,10 @@ PostmasterMain(int argc, char *argv[]) /// 这里是真正的主进程入口函�
 	PostmasterContext = AllocSetContextCreate(TopMemoryContext,
 											  "Postmaster",
 											  ALLOCSET_DEFAULT_SIZES);
-	MemoryContextSwitchTo(PostmasterContext); /// 单独产生一个内存池，放在TopMemoryContext下面
+	MemoryContextSwitchTo(PostmasterContext); /// 单独产生一个内存池PostmasterContext，放在TopMemoryContext下面
 
 	/* Initialize paths to installation files */
-	getInstallationPaths(argv[0]);
+	getInstallationPaths(argv[0]); /// argv[0]是带路径的，如/xxxx/xxxxx/postgres
 
 	/*
 	 * Set up signal handlers for the postmaster process.
@@ -636,7 +636,7 @@ PostmasterMain(int argc, char *argv[]) /// 这里是真正的主进程入口函�
 				}
 
 			case 'D':
-				userDoption = strdup(optarg);
+				userDoption = strdup(optarg); /// 如果指定 -D /xxx/xxx，则optarg和userDoption的值都是/xxx/xxx
 				break;
 
 			case 'd':
@@ -765,7 +765,7 @@ PostmasterMain(int argc, char *argv[]) /// 这里是真正的主进程入口函�
 	 * Locate the proper configuration files and data directory, and read
 	 * postgresql.conf for the first time.
 	 */
-	if (!SelectConfigFiles(userDoption, progname))
+	if (!SelectConfigFiles(userDoption, progname)) 
 		ExitPostmaster(2);
 
 	if (output_config_variable != NULL)
@@ -809,7 +809,7 @@ PostmasterMain(int argc, char *argv[]) /// 这里是真正的主进程入口函�
 	}
 
 	/* Verify that DataDir looks reasonable */
-	checkDataDir();
+	checkDataDir(); /// 检查数据库集群的目录，大版本等信息。如果发现错误，就拒绝启动
 
 	/* Check that pg_control exists */
 	checkControlFile(); /// 对控制文件进行初步检查，并不读取其中的内容
@@ -820,6 +820,7 @@ PostmasterMain(int argc, char *argv[]) /// 这里是真正的主进程入口函�
 	/*
 	 * Check for invalid combinations of GUC settings.
 	 */
+	/// 缺省情况下SuperuserReservedConnections = 3， ReservedConnections=0， MaxConnections = 100
 	if (SuperuserReservedConnections + ReservedConnections >= MaxConnections) /// 检查关于连接数量的相关参数的设置。
 	{
 		write_stderr("%s: \"superuser_reserved_connections\" (%d) plus \"reserved_connections\" (%d) must be less than \"max_connections\" (%d)\n",
@@ -828,6 +829,8 @@ PostmasterMain(int argc, char *argv[]) /// 这里是真正的主进程入口函�
 					 MaxConnections);
 		ExitPostmaster(1);
 	}
+	/// 缺省情况下，XLogArchiveMode=0, wal_level=WAL_LEVEL_REPLICA，max_wal_senders = 10
+	/// summarize_wal = false
 	if (XLogArchiveMode > ARCHIVE_MODE_OFF && wal_level == WAL_LEVEL_MINIMAL) /// 归档模式和 wal_level 的关系检查
 		ereport(ERROR,
 				(errmsg("WAL archival cannot be enabled when \"wal_level\" is \"minimal\"")));
@@ -1454,6 +1457,8 @@ getInstallationPaths(const char *argv0)
 	 * Locate the pkglib directory --- this has to be set early in case we try
 	 * to load any modules from it in response to postgresql.conf entries.
 	 */
+	/// 根据调试结果，my_exec_path="/home/postgres/pg175/bin/postgres"
+	/// 这个函数执行完毕后，pkglib_path = "/home/postgres/pg175/lib"
 	get_pkglib_path(my_exec_path, pkglib_path);
 
 	/*
@@ -2033,7 +2038,8 @@ ClosePostmasterPorts(bool am_syslogger)
 void
 InitProcessGlobals(void) /// 记录启动时间，产生随机数
 {
-	MyStartTimestamp = GetCurrentTimestamp();
+	/// 调用gettimeofday()获得时间信息
+	MyStartTimestamp = GetCurrentTimestamp(); /// backend/utils/init/globals.c:TimestampTz MyStartTimestamp;
 	MyStartTime = timestamptz_to_time_t(MyStartTimestamp);
 
 	/*

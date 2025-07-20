@@ -29,7 +29,7 @@
 typedef struct PGShmemHeader	/* standard header for all Postgres shmem */
 {
 	int32		magic;			/* magic # to identify Postgres segments */
-#define PGShmemMagic  679834894
+#define PGShmemMagic  679834894 /// 头四个字节是魔幻数
 	pid_t		creatorPID;		/* PID of creating process (set but unread) */
 	Size		totalsize;		/* total size of segment */
 	Size		freeoffset;		/* offset to first free space */
