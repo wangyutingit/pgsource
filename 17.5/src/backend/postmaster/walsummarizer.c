@@ -185,7 +185,7 @@ WalSummarizerShmemInit(void)
 		ShmemInitStruct("Wal Summarizer Ctl", WalSummarizerShmemSize(),
 						&found);
 
-	if (!found)
+	if (!found) /// 第一次插入到哈希表，found = false
 	{
 		/*
 		 * First time through, so initialize.
@@ -196,7 +196,7 @@ WalSummarizerShmemInit(void)
 		 */
 		WalSummarizerCtl->initialized = false;
 		WalSummarizerCtl->summarized_tli = 0;
-		WalSummarizerCtl->summarized_lsn = InvalidXLogRecPtr;
+		WalSummarizerCtl->summarized_lsn = InvalidXLogRecPtr; /// #define InvalidXLogRecPtr	0
 		WalSummarizerCtl->lsn_is_exact = false;
 		WalSummarizerCtl->summarizer_pgprocno = INVALID_PROC_NUMBER;
 		WalSummarizerCtl->pending_lsn = InvalidXLogRecPtr;
@@ -208,7 +208,7 @@ WalSummarizerShmemInit(void)
  * Entry point for walsummarizer process.
  */
 void
-WalSummarizerMain(char *startup_data, size_t startup_data_len)
+WalSummarizerMain(char *startup_data, size_t startup_data_len) /// 本进程的入口函数
 {
 	sigjmp_buf	local_sigjmp_buf;
 	MemoryContext context;
@@ -232,8 +232,8 @@ WalSummarizerMain(char *startup_data, size_t startup_data_len)
 
 	Assert(startup_data_len == 0);
 
-	MyBackendType = B_WAL_SUMMARIZER;
-	AuxiliaryProcessMainCommon();
+	MyBackendType = B_WAL_SUMMARIZER; /// 记录本进程的类型是wal_summarizer
+	AuxiliaryProcessMainCommon(); /// 通用的初始化过程
 
 	ereport(DEBUG1,
 			(errmsg_internal("WAL summarizer started")));
@@ -345,17 +345,17 @@ WalSummarizerMain(char *startup_data, size_t startup_data_len)
 	/*
 	 * Loop forever
 	 */
-	for (;;)
+	for (;;) /// 无限循环
 	{
 		XLogRecPtr	latest_lsn;
 		TimeLineID	latest_tli;
 		XLogRecPtr	end_of_summary_lsn;
 
 		/* Flush any leaked data in the top-level context */
-		MemoryContextReset(context);
+		MemoryContextReset(context); /// 每次循环，都把内存池重置一下，避免内存泄露
 
 		/* Process any signals received recently. */
-		HandleWalSummarizerInterrupts();
+		HandleWalSummarizerInterrupts(); /// 处理收到的信号
 
 		/* If it's time to remove any old WAL summaries, do that now. */
 		MaybeRemoveOldWalSummaries();
@@ -797,9 +797,9 @@ WalSummarizerShutdown(int code, Datum arg)
  * corresponding timeline.
  */
 static XLogRecPtr
-GetLatestLSN(TimeLineID *tli)
+GetLatestLSN(TimeLineID *tli) /// typedef uint32 TimeLineID;
 {
-	if (!RecoveryInProgress())
+	if (!RecoveryInProgress()) /// 本数据库处于primary role状态
 	{
 		/* Don't summarize WAL before it's flushed. */
 		return GetFlushRecPtr(tli);
@@ -866,11 +866,12 @@ HandleWalSummarizerInterrupts(void)
 		ProcessConfigFile(PGC_SIGHUP);
 	}
 
-	if (ShutdownRequestPending || !summarize_wal)
+	if (ShutdownRequestPending || !summarize_wal) /// 本进程接到通知，要求退出。修改summarize_wal就会关闭该进程
 	{
 		ereport(DEBUG1,
 				errmsg_internal("WAL summarizer shutting down"));
-		proc_exit(0);
+		proc_exit(0); /// 该函数调用exit(code)退出进程 exit - cause normal process termination
+		/// https://man7.org/linux/man-pages/man3/exit.3.html
 	}
 
 	/* Perform logging of memory contexts of this process */
@@ -1196,7 +1197,7 @@ SummarizeWAL(TimeLineID tli, XLogRecPtr start_lsn, bool exact,
 	{
 		/* Generate temporary and final path name. */
 		snprintf(temp_path, MAXPGPATH,
-				 XLOGDIR "/summaries/temp.summary");
+				 XLOGDIR "/summaries/temp.summary"); /// pg_wal/summaries/000000010000000009000060000000000A000028.summary
 		snprintf(final_path, MAXPGPATH,
 				 XLOGDIR "/summaries/%08X%08X%08X%08X%08X.summary",
 				 tli,

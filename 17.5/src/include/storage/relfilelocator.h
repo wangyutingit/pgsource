@@ -55,11 +55,11 @@
  * there *must not* be any unused padding bytes in this struct.  That
  * should be safe as long as all the fields are of type Oid.
  */
-typedef struct RelFileLocator
+typedef struct RelFileLocator /// 定位一张表的三元组
 {
-	Oid			spcOid;			/* tablespace */
+	Oid			spcOid;			/* tablespace */ /// typedef unsigned int Oid;
 	Oid			dbOid;			/* database */
-	RelFileNumber relNumber;	/* relation */
+	RelFileNumber relNumber;	/* relation */ /// typedef Oid RelFileNumber;
 } RelFileLocator;
 
 /*

@@ -24,11 +24,11 @@
 
 typedef struct ws_options
 {
-	bool		individual;
-	bool		quiet;
+	bool		individual; /// list block numbers individually, not as ranges
+	bool		quiet; /// don't print anything, just parse the files
 } ws_options;
 
-typedef struct ws_file_info
+typedef struct ws_file_info /// 这个结构很简单，就是包含一个文件句柄，还有一个文件名
 {
 	int			fd;
 	char	   *filename;
@@ -63,7 +63,7 @@ main(int argc, char *argv[])
 	int			c;
 	ws_options	opt;
 
-	memset(&opt, 0, sizeof(ws_options));
+	memset(&opt, 0, sizeof(ws_options)); /// 把这个简单的数据结构清零
 
 	pg_logging_init(argv[0]);
 	progname = get_progname(argv[0]);
@@ -104,16 +104,16 @@ main(int argc, char *argv[])
 		ForkNumber	forknum;
 		BlockNumber limit_block;
 
-		ws.filename = argv[optind++];
+		ws.filename = argv[optind++]; /// ws.filename就是指定的summary文件
 		if ((ws.fd = open(ws.filename, O_RDONLY | PG_BINARY, 0)) < 0)
-			pg_fatal("could not open file \"%s\": %m", ws.filename);
+			pg_fatal("could not open file \"%s\": %m", ws.filename); /// 以二进制的方式打开该文件
 
 		reader = CreateBlockRefTableReader(walsummary_read_callback, &ws,
 										   ws.filename,
 										   walsummary_error_callback, NULL);
 		while (BlockRefTableReaderNextRelation(reader, &rlocator, &forknum,
 											   &limit_block))
-			dump_one_relation(&opt, &rlocator, forknum, limit_block, reader);
+			dump_one_relation(&opt, &rlocator, forknum, limit_block, reader); /// 不断循环显示信息
 
 		DestroyBlockRefTableReader(reader);
 		close(ws.fd);
@@ -126,20 +126,22 @@ main(int argc, char *argv[])
  * Dump details for one relation.
  */
 static void
-dump_one_relation(ws_options *opt, RelFileLocator *rlocator,
+dump_one_relation(ws_options *opt, RelFileLocator *rlocator, /// 这个是定位一张表的三元组
 				  ForkNumber forknum, BlockNumber limit_block,
 				  BlockRefTableReader *reader)
 {
 	unsigned	i = 0;
 	unsigned	nblocks;
-	BlockNumber startblock = InvalidBlockNumber;
-	BlockNumber endblock = InvalidBlockNumber;
+	BlockNumber startblock = InvalidBlockNumber; /// #define InvalidBlockNumber		((BlockNumber) 0xFFFFFFFF)
+	BlockNumber endblock = InvalidBlockNumber; /// typedef uint32 BlockNumber;
 
 	/* Dump limit block, if any. */
 	if (limit_block != InvalidBlockNumber)
 		printf("TS %u, DB %u, REL %u, FORK %s: limit %u\n",
 			   rlocator->spcOid, rlocator->dbOid, rlocator->relNumber,
 			   forkNames[forknum], limit_block);
+
+	/// forkNames的定义参考src/common/relpath.c:const char *const forkNames[] = {
 
 	/* If we haven't allocated a block buffer yet, do that now. */
 	if (block_buffer == NULL)
@@ -242,7 +244,7 @@ walsummary_error_callback(void *callback_arg, char *fmt,...)
 /*
  * Read callback.
  */
-int
+int /// 读取文件中的指定长度的数据，返回读取的字节数
 walsummary_read_callback(void *callback_arg, void *data, int length)
 {
 	ws_file_info *ws = callback_arg;
@@ -262,7 +264,7 @@ walsummary_read_callback(void *callback_arg, void *data, int length)
  * progname: the name of the executed program, such as "pg_walsummary"
  */
 static void
-help(const char *progname)
+help(const char *progname) /// 一个简单打印本程序使用方法的函数
 {
 	printf(_("%s prints the contents of a WAL summary file.\n\n"), progname);
 	printf(_("Usage:\n"));

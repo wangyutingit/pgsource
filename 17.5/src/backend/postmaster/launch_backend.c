@@ -274,7 +274,7 @@ postmaster_child_launch(BackendType child_type,
 		/*
 		 * Run the appropriate Main function
 		 */
-		child_process_kinds[child_type].main_fn(startup_data, startup_data_len);
+		child_process_kinds[child_type].main_fn(startup_data, startup_data_len); /// 通过函数指针调用不同的子进程入口函数。
 		pg_unreachable();		/* main_fn never returns */
 	}
 #endif							/* EXEC_BACKEND */

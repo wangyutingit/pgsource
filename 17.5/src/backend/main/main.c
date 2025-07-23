@@ -196,7 +196,7 @@ main(int argc, char *argv[]) /// 这里是PostgreSQL主进程的入口函数。
 		PostgresSingleUserMain(argc, argv,
 							   strdup(get_user_name_or_exit(progname)));
 	else
-		PostmasterMain(argc, argv); ///正常情况下走这个路径，进入PostmasterMain函数执行主进程的逻辑。
+		PostmasterMain(argc, argv); /// 正常情况下走这个路径，进入PostmasterMain函数执行主进程的逻辑。
 	/* the functions above should not return */
 	abort();
 }

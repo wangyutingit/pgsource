@@ -213,11 +213,11 @@ StartupProcExit(int code, Datum arg)
  * ----------------------------------
  */
 void
-StartupProcessMain(char *startup_data, size_t startup_data_len)
+StartupProcessMain(char *startup_data, size_t startup_data_len) /// startup进程的入口函数
 {
 	Assert(startup_data_len == 0);
 
-	MyBackendType = B_STARTUP;
+	MyBackendType = B_STARTUP; /// 记录本进程的类型
 	AuxiliaryProcessMainCommon();
 
 	/* Arrange to clean up at startup process exit */
@@ -255,7 +255,7 @@ StartupProcessMain(char *startup_data, size_t startup_data_len)
 	/*
 	 * Do what we came for.
 	 */
-	StartupXLOG();
+	StartupXLOG(); /// 这个是startup进程主要的逻辑
 
 	/*
 	 * Exit normally. Exit code 0 tells postmaster that we completed recovery

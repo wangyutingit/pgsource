@@ -4091,13 +4091,13 @@ RemoveXlogFile(const struct dirent *segment_de,
  * plain directory would result in degraded performance with no notice.
  */
 static void
-ValidateXLOGDirectoryStructure(void)
+ValidateXLOGDirectoryStructure(void) /// 检查pg_wal目录的状态，检查的地方都三个点。pg_wal是否存在，是否是目录？archive_status和summaries子目录是否存在？
 {
 	char		path[MAXPGPATH];
 	struct stat stat_buf;
 
 	/* Check for pg_wal; if it doesn't exist, error out */
-	if (stat(XLOGDIR, &stat_buf) != 0 ||
+	if (stat(XLOGDIR, &stat_buf) != 0 || /// #define XLOGDIR				"pg_wal"
 		!S_ISDIR(stat_buf.st_mode))
 		ereport(FATAL,
 				(errcode_for_file_access(),
@@ -4115,7 +4115,7 @@ ValidateXLOGDirectoryStructure(void)
 					 errmsg("required WAL directory \"%s\" does not exist",
 							path)));
 	}
-	else
+	else /// 如果pg_wal/archive_status目录不存在，就重新创建。
 	{
 		ereport(LOG,
 				(errmsg("creating missing WAL directory \"%s\"", path)));
@@ -4136,7 +4136,7 @@ ValidateXLOGDirectoryStructure(void)
 					(errmsg("required WAL directory \"%s\" does not exist",
 							path)));
 	}
-	else
+	else /// 如果pg_wal/summaries目录不存在，就重新创建它。
 	{
 		ereport(LOG,
 				(errmsg("creating missing WAL directory \"%s\"", path)));
@@ -5429,7 +5429,7 @@ StartupXLOG(void)
 	/*
 	 * Check that contents look valid.
 	 */
-	if (!XRecOffIsValid(ControlFile->checkPoint))
+	if (!XRecOffIsValid(ControlFile->checkPoint)) /// 检查一下控制文件中检查点的LSN是否处于合法的位置。
 		ereport(FATAL,
 				(errcode(ERRCODE_DATA_CORRUPTED),
 				 errmsg("control file contains invalid checkpoint location")));
@@ -5498,7 +5498,7 @@ StartupXLOG(void)
 	 * In cases where someone has performed a copy for PITR, these directories
 	 * may have been excluded and need to be re-created.
 	 */
-	ValidateXLOGDirectoryStructure();
+	ValidateXLOGDirectoryStructure(); /// 对pg_wal子目录进行简单的检查。
 
 	/* Set up timeout handler needed to report startup progress. */
 	if (!IsBootstrapProcessingMode())
@@ -5524,7 +5524,7 @@ StartupXLOG(void)
 	{
 		RemoveTempXlogFiles();
 		SyncDataDirectory();
-		didCrash = true;
+		didCrash = true; /// disCrash的条件就是控制文件中的状态是否是两个干净关闭的值。
 	}
 	else
 		didCrash = false;

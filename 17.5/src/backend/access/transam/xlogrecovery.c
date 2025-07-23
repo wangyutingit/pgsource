@@ -510,7 +510,7 @@ EnableStandbyMode(void)
  */
 void
 InitWalRecovery(ControlFileData *ControlFile, bool *wasShutdown_ptr,
-				bool *haveBackupLabel_ptr, bool *haveTblspcMap_ptr)
+				bool *haveBackupLabel_ptr, bool *haveTblspcMap_ptr) ///这个函数只在StartupXLOG中调用一次，别的地方没有调用。
 {
 	XLogPageReadPrivate *private;
 	struct stat st;
@@ -522,7 +522,7 @@ InitWalRecovery(ControlFileData *ControlFile, bool *wasShutdown_ptr,
 	CheckPoint	checkPoint;
 	bool		backupFromStandby = false;
 
-	dbstate_at_startup = ControlFile->state;
+	dbstate_at_startup = ControlFile->state; /// 数据库集群的状态
 
 	/*
 	 * Initialize on the assumption we want to recover to the latest timeline
@@ -532,13 +532,13 @@ InitWalRecovery(ControlFileData *ControlFile, bool *wasShutdown_ptr,
 		ControlFile->checkPointCopy.ThisTimeLineID)
 		recoveryTargetTLI = ControlFile->minRecoveryPointTLI;
 	else
-		recoveryTargetTLI = ControlFile->checkPointCopy.ThisTimeLineID;
+		recoveryTargetTLI = ControlFile->checkPointCopy.ThisTimeLineID; /// 取两者中最大值为准
 
 	/*
 	 * Check for signal files, and if so set up state for offline recovery
 	 */
-	readRecoverySignalFile();
-	validateRecoveryParameters();
+	readRecoverySignalFile(); /// 这个函数的输出结果就是根据对两个信号文件的检测，设置几个全局变量的值。
+	validateRecoveryParameters(); /// 检测recovery参数的设置问题。
 
 	/*
 	 * Take ownership of the wakeup latch if we're going to sleep during
@@ -551,7 +551,7 @@ InitWalRecovery(ControlFileData *ControlFile, bool *wasShutdown_ptr,
 	 * Set the WAL reading processor now, as it will be needed when reading
 	 * the checkpoint record required (backup_label or not).
 	 */
-	private = palloc0(sizeof(XLogPageReadPrivate));
+	private = palloc0(sizeof(XLogPageReadPrivate)); /// 从当前内存池中分配一个内存，存放XLogPageReadPrivate数据结构。
 	xlogreader =
 		XLogReaderAllocate(wal_segment_size, NULL,
 						   XL_ROUTINE(.page_read = &XLogPageRead,
@@ -563,13 +563,13 @@ InitWalRecovery(ControlFileData *ControlFile, bool *wasShutdown_ptr,
 				(errcode(ERRCODE_OUT_OF_MEMORY),
 				 errmsg("out of memory"),
 				 errdetail("Failed while allocating a WAL reading processor.")));
-	xlogreader->system_identifier = ControlFile->system_identifier;
+	xlogreader->system_identifier = ControlFile->system_identifier; /// 从控制文件中读取系统标识符，来验证即将读取的WAL文件是否属于本数据库集群。
 
 	/*
 	 * Set the WAL decode buffer size.  This limits how far ahead we can read
 	 * in the WAL.
 	 */
-	XLogReaderSetDecodeBuffer(xlogreader, NULL, wal_decode_buffer_size);
+	XLogReaderSetDecodeBuffer(xlogreader, NULL, wal_decode_buffer_size); /// wal_decode_buffer_size缺省值是512KB
 
 	/* Create a WAL prefetcher. */
 	xlogprefetcher = XLogPrefetcherAllocate(xlogreader);
@@ -1034,16 +1034,18 @@ readRecoverySignalFile(void)
 	/*
 	 * Check for old recovery API file: recovery.conf
 	 */
-	if (stat(RECOVERY_COMMAND_FILE, &stat_buf) == 0)
+	/// stat() returns information about a file, in the buffer pointed to by statbuf
+	/// On success, zero is returned.
+	if (stat(RECOVERY_COMMAND_FILE, &stat_buf) == 0) /// #define RECOVERY_COMMAND_FILE	"recovery.conf"
 		ereport(FATAL,
 				(errcode_for_file_access(),
 				 errmsg("using recovery command file \"%s\" is not supported",
-						RECOVERY_COMMAND_FILE)));
+						RECOVERY_COMMAND_FILE))); /// 如果发现了recovery.conf文件就拒绝启动，够狠的，直接删除掉不就行了吗？
 
 	/*
 	 * Remove unused .done file, if present. Ignore if absent.
 	 */
-	unlink(RECOVERY_COMMAND_DONE);
+	unlink(RECOVERY_COMMAND_DONE); /// 删除文件 #define RECOVERY_COMMAND_DONE	"recovery.done"
 
 	/*
 	 * Check for recovery signal files and if found, fsync them since they
@@ -1053,7 +1055,7 @@ readRecoverySignalFile(void)
 	 * If present, standby signal file takes precedence. If neither is present
 	 * then we won't enter archive recovery.
 	 */
-	if (stat(STANDBY_SIGNAL_FILE, &stat_buf) == 0)
+	if (stat(STANDBY_SIGNAL_FILE, &stat_buf) == 0) /// 如果找到了该文件， #define STANDBY_SIGNAL_FILE		"standby.signal"
 	{
 		int			fd;
 
@@ -1064,9 +1066,9 @@ readRecoverySignalFile(void)
 			(void) pg_fsync(fd);
 			close(fd);
 		}
-		standby_signal_file_found = true;
+		standby_signal_file_found = true; /// 设置这个变量为true.
 	}
-	else if (stat(RECOVERY_SIGNAL_FILE, &stat_buf) == 0)
+	else if (stat(RECOVERY_SIGNAL_FILE, &stat_buf) == 0) /// #define RECOVERY_SIGNAL_FILE	"recovery.signal"
 	{
 		int			fd;
 
@@ -1079,10 +1081,11 @@ readRecoverySignalFile(void)
 		}
 		recovery_signal_file_found = true;
 	}
+	/// 从上面的逻辑可以看出，standby.signal的优先级要比recovery.signal高。
 
 	StandbyModeRequested = false;
 	ArchiveRecoveryRequested = false;
-	if (standby_signal_file_found)
+	if (standby_signal_file_found) /// 这个小逻辑比较简单。
 	{
 		StandbyModeRequested = true;
 		ArchiveRecoveryRequested = true;
@@ -1108,7 +1111,7 @@ readRecoverySignalFile(void)
 static void
 validateRecoveryParameters(void)
 {
-	if (!ArchiveRecoveryRequested)
+	if (!ArchiveRecoveryRequested) /// 这个变量只有在两个信号文件至少存在一个的情况下才有效。
 		return;
 
 	/*
@@ -4452,9 +4455,10 @@ CheckForStandbyTrigger(void)
  * Remove the files signaling a standby promotion request.
  */
 void
-RemovePromoteSignalFiles(void)
+RemovePromoteSignalFiles(void) /// 就是调用unlink系统函数删除promote文件
 {
-	unlink(PROMOTE_SIGNAL_FILE);
+	/// int unlink(const char *pathname); delete a name and possibly the file it refers to.
+	unlink(PROMOTE_SIGNAL_FILE); /// #define PROMOTE_SIGNAL_FILE		"promote"
 }
 
 /*

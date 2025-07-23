@@ -1039,7 +1039,7 @@ PostmasterMain(int argc, char *argv[]) /// 这里是真正的主进程入口函�
 	 * process is invoked. Because, after that, they can be used by
 	 * postmaster's SIGUSR1 signal handler.
 	 */
-	RemovePromoteSignalFiles();
+	RemovePromoteSignalFiles(); /// 就是调用unlink系统函数删除promote文件
 
 	/* Do the same for logrotate signal file */
 	RemoveLogrotateSignalFiles();
@@ -1349,7 +1349,7 @@ PostmasterMain(int argc, char *argv[]) /// 这里是真正的主进程入口函�
 	/*
 	 * Remember postmaster startup time
 	 */
-	PgStartTime = GetCurrentTimestamp();
+	PgStartTime = GetCurrentTimestamp(); /// 获取当前的系统时间，保存在全局变量中，记录主进程的启动时间。
 
 	/*
 	 * Report postmaster status in the postmaster.pid file, to allow pg_ctl to
@@ -1374,7 +1374,7 @@ PostmasterMain(int argc, char *argv[]) /// 这里是真正的主进程入口函�
 	/* Some workers may be scheduled to start now */
 	maybe_start_bgworkers();
 
-	status = ServerLoop();
+	status = ServerLoop(); /// 这个是postmaster主进程的主要循环逻辑。
 
 	/*
 	 * ServerLoop probably shouldn't ever return, but if it does, close down.

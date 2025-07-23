@@ -112,7 +112,7 @@ InitShmemAccess(void *seghdr) /// 就是设置三个全局的指针，两个指�
  * This should be called only in the postmaster or a standalone backend.
  */
 void
-InitShmemAllocation(void)
+InitShmemAllocation(void) /// 这个函数在分配完共享内存后的初始阶段执行一次。我搜索了整个代码库，只在src/backend/storage/ipc/ipci.c中调用一次
 {
 	PGShmemHeader *shmhdr = ShmemSegHdr;
 	char	   *aligned;
@@ -123,9 +123,9 @@ InitShmemAllocation(void)
 	 * Initialize the spinlock used by ShmemAlloc.  We must use
 	 * ShmemAllocUnlocked, since obviously ShmemAlloc can't be called yet.
 	 */
-	ShmemLock = (slock_t *) ShmemAllocUnlocked(sizeof(slock_t));
+	ShmemLock = (slock_t *) ShmemAllocUnlocked(sizeof(slock_t)); /// 此时还没有自旋锁，所以只能无锁申请
 
-	SpinLockInit(ShmemLock);
+	SpinLockInit(ShmemLock); /// 初始化自旋锁，以后的申请共享内存调用，就要用这把锁进行保护才能进行。
 
 	/*
 	 * Allocations after this point should go through ShmemAlloc, which
@@ -134,7 +134,7 @@ InitShmemAllocation(void)
 	 */
 	aligned = (char *)
 		(CACHELINEALIGN((((char *) shmhdr) + shmhdr->freeoffset)));
-	shmhdr->freeoffset = aligned - (char *) shmhdr;
+	shmhdr->freeoffset = aligned - (char *) shmhdr; /// 把freeoffset按照cache的宽度对齐，提高性能。
 
 	/* ShmemIndex can't be set up yet (need LWLocks first) */
 	shmhdr->index = NULL;
@@ -149,7 +149,7 @@ InitShmemAllocation(void)
  * Assumes ShmemLock and ShmemSegHdr are initialized.
  */
 void *
-ShmemAlloc(Size size)
+ShmemAlloc(Size size) /// 如果申请共享内存失败，则整个数据库集群退出，所以这个函数返回值肯定为非NULL。
 {
 	void	   *newSpace;
 	Size		allocated_size;
@@ -205,7 +205,7 @@ ShmemAllocRaw(Size size, Size *allocated_size)
 
 	Assert(ShmemSegHdr != NULL);
 
-	SpinLockAcquire(ShmemLock);
+	SpinLockAcquire(ShmemLock); /// 获得自旋锁
 
 	newStart = ShmemSegHdr->freeoffset;
 
@@ -218,7 +218,7 @@ ShmemAllocRaw(Size size, Size *allocated_size)
 	else
 		newSpace = NULL;
 
-	SpinLockRelease(ShmemLock);
+	SpinLockRelease(ShmemLock); /// 释放自旋锁
 
 	/* note this assert is okay with newSpace == NULL */
 	Assert(newSpace == (void *) CACHELINEALIGN(newSpace));
@@ -490,7 +490,7 @@ ShmemInitStruct(const char *name, Size size, bool *foundPtr)
  * Add two Size values, checking for overflow
  */
 Size
-add_size(Size s1, Size s2)
+add_size(Size s1, Size s2) /// 计算两个值的和。如果发生溢出现象，就退出整个进程，比较狠。
 {
 	Size		result;
 

@@ -358,7 +358,7 @@ typedef enum BackendType
 	B_CHECKPOINTER,
 	B_STARTUP,
 	B_WAL_RECEIVER,
-	B_WAL_SUMMARIZER,
+	B_WAL_SUMMARIZER, /// 这是PG 17才新增加的进程
 	B_WAL_WRITER,
 
 	/*

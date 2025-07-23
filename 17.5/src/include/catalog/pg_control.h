@@ -101,7 +101,7 @@ typedef enum DBState
  * Contents of pg_control.
  */
 
-typedef struct ControlFileData
+typedef struct ControlFileData /// 控制文件中的内容
 {
 	/*
 	 * Unique system identifier --- to ensure we match up xlog files with the

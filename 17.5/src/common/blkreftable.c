@@ -75,8 +75,9 @@ typedef struct BlockRefTableKey
  * Any chunk whose allocated size reaches MAX_ENTRIES_PER_CHUNK is converted
  * to a bitmap, and thus never needs to grow further.
  */
+/// 两种表示方式，太多的block就是用位图来表示block，每个bit表示一个block。
 #define BLOCKS_PER_CHUNK		(1 << 16)
-#define BLOCKS_PER_ENTRY		(BITS_PER_BYTE * sizeof(uint16))
+#define BLOCKS_PER_ENTRY		(BITS_PER_BYTE * sizeof(uint16)) /// #define BITS_PER_BYTE		8
 #define MAX_ENTRIES_PER_CHUNK	(BLOCKS_PER_CHUNK / BLOCKS_PER_ENTRY)
 #define INITIAL_ENTRIES_PER_CHUNK	16
 typedef uint16 *BlockRefTableChunk;
@@ -152,12 +153,12 @@ struct BlockRefTable
 /*
  * On-disk serialization format for block reference table entries.
  */
-typedef struct BlockRefTableSerializedEntry
+typedef struct BlockRefTableSerializedEntry /// 这个结构是24个字节
 {
-	RelFileLocator rlocator;
-	ForkNumber	forknum;
-	BlockNumber limit_block;
-	uint32		nchunks;
+	RelFileLocator rlocator; /// 定位一张表的三元组
+	ForkNumber	forknum;     /// 4个字节
+	BlockNumber limit_block; /// 4个字节
+	uint32		nchunks;     /// 4个字节
 } BlockRefTableSerializedEntry;
 
 /*
@@ -172,7 +173,7 @@ typedef struct BlockRefTableBuffer
 {
 	io_callback_fn io_callback;
 	void	   *io_callback_arg;
-	char		data[BUFSIZE];
+	char		data[BUFSIZE]; /// 64KB
 	int			used;
 	int			cursor;
 	pg_crc32c	crc;
@@ -477,7 +478,7 @@ WriteBlockRefTable(BlockRefTable *brtab,
 {
 	BlockRefTableSerializedEntry *sdata = NULL;
 	BlockRefTableBuffer buffer;
-	uint32		magic = BLOCKREFTABLE_MAGIC;
+	uint32		magic = BLOCKREFTABLE_MAGIC; /// #define BLOCKREFTABLE_MAGIC			0x652b137b
 
 	/* Prepare buffer. */
 	memset(&buffer, 0, sizeof(BlockRefTableBuffer));
@@ -486,7 +487,7 @@ WriteBlockRefTable(BlockRefTable *brtab,
 	INIT_CRC32C(buffer.crc);
 
 	/* Write magic number. */
-	BlockRefTableWrite(&buffer, &magic, sizeof(uint32));
+	BlockRefTableWrite(&buffer, &magic, sizeof(uint32)); /// 先写一个4字节的魔幻数0x652b137b
 
 	/* Write the entries, assuming there are some. */
 	if (brtab->hash->members > 0)
@@ -578,13 +579,13 @@ CreateBlockRefTableReader(io_callback_fn read_callback,
 						  void *read_callback_arg,
 						  char *error_filename,
 						  report_error_fn error_callback,
-						  void *error_callback_arg)
+						  void *error_callback_arg) /// 两个回调函数的指针
 {
 	BlockRefTableReader *reader;
 	uint32		magic;
 
 	/* Initialize data structure. */
-	reader = palloc0(sizeof(BlockRefTableReader));
+	reader = palloc0(sizeof(BlockRefTableReader)); /// 先分配一块内存
 	reader->buffer.io_callback = read_callback;
 	reader->buffer.io_callback_arg = read_callback_arg;
 	reader->error_filename = error_filename;
@@ -593,8 +594,8 @@ CreateBlockRefTableReader(io_callback_fn read_callback,
 	INIT_CRC32C(reader->buffer.crc);
 
 	/* Verify magic number. */
-	BlockRefTableRead(reader, &magic, sizeof(uint32));
-	if (magic != BLOCKREFTABLE_MAGIC)
+	BlockRefTableRead(reader, &magic, sizeof(uint32)); /// 先读取4个字节，检查它是否是魔幻数
+	if (magic != BLOCKREFTABLE_MAGIC) /// 开始四个字节是魔幻数： 137b 652b --> #define BLOCKREFTABLE_MAGIC			0x652b137b
 		error_callback(error_callback_arg,
 					   "file \"%s\" has wrong magic number: expected %u, found %u",
 					   error_filename,
@@ -626,13 +627,13 @@ BlockRefTableReaderNextRelation(BlockRefTableReader *reader,
 
 	/* Read serialized entry. */
 	BlockRefTableRead(reader, &sentry,
-					  sizeof(BlockRefTableSerializedEntry));
+					  sizeof(BlockRefTableSerializedEntry)); /// 读取24字节的一条记录
 
 	/*
 	 * If we just read the sentinel entry indicating that we've reached the
 	 * end, read and check the CRC.
 	 */
-	if (memcmp(&sentry, &zentry, sizeof(BlockRefTableSerializedEntry)) == 0)
+	if (memcmp(&sentry, &zentry, sizeof(BlockRefTableSerializedEntry)) == 0) /// 最后一个BlockRefTableSerializedEntry的内容是全0，表示到文件尾部了。
 	{
 		pg_crc32c	expected_crc;
 		pg_crc32c	actual_crc;
@@ -646,7 +647,8 @@ BlockRefTableReaderNextRelation(BlockRefTableReader *reader,
 		FIN_CRC32C(expected_crc);
 
 		/* Now we can read the actual value. */
-		BlockRefTableRead(reader, &actual_crc, sizeof(pg_crc32c));
+		/// 读取最后4个字节的CRC32校验码。
+		BlockRefTableRead(reader, &actual_crc, sizeof(pg_crc32c)); /// typedef uint32 pg_crc32c;
 
 		/* Throw an error if there is a mismatch. */
 		if (!EQ_CRC32C(expected_crc, actual_crc))
@@ -662,7 +664,7 @@ BlockRefTableReaderNextRelation(BlockRefTableReader *reader,
 		pfree(reader->chunk_size);
 	reader->chunk_size = palloc(sentry.nchunks * sizeof(uint16));
 	BlockRefTableRead(reader, reader->chunk_size,
-					  sentry.nchunks * sizeof(uint16));
+					  sentry.nchunks * sizeof(uint16)); /// 连续的nchunks个两字节
 
 	/* Set up for chunk scan. */
 	reader->total_chunks = sentry.nchunks;
@@ -1261,10 +1263,10 @@ static void
 BlockRefTableWrite(BlockRefTableBuffer *buffer, void *data, int length)
 {
 	/* Update running CRC calculation. */
-	COMP_CRC32C(buffer->crc, data, length);
+	COMP_CRC32C(buffer->crc, data, length); /// 根据新输入的数据，计算CRC32的值
 
 	/* If the new data can't fit into the buffer, flush the buffer. */
-	if (buffer->used + length > BUFSIZE)
+	if (buffer->used + length > BUFSIZE) /// 缓冲区里面的空闲空间放不下新加入的数据，就把数据写到磁盘上
 	{
 		buffer->io_callback(buffer->io_callback_arg, buffer->data,
 							buffer->used);
@@ -1272,14 +1274,14 @@ BlockRefTableWrite(BlockRefTableBuffer *buffer, void *data, int length)
 	}
 
 	/* If the new data would fill the buffer, or more, write it directly. */
-	if (length >= BUFSIZE)
+	if (length >= BUFSIZE) /// 如果新写的数据过大，缓冲区放不下了，就直接一次性写到磁盘上。
 	{
 		buffer->io_callback(buffer->io_callback_arg, data, length);
 		return;
 	}
 
 	/* Otherwise, copy the new data into the buffer. */
-	memcpy(&buffer->data[buffer->used], data, length);
+	memcpy(&buffer->data[buffer->used], data, length); /// 如果能放下，就简单的内存数据拷贝
 	buffer->used += length;
 	Assert(buffer->used <= BUFSIZE);
 }
