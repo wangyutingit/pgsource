@@ -109,11 +109,11 @@ typedef void (*WriteDataCallback) (size_t nbytes, char *buf,
 /*
  * Different ways to include WAL
  */
-typedef enum
+typedef enum /// 备份数据库时如何处理WAL记录，共有三种方式
 {
-	NO_WAL,
-	FETCH_WAL,
-	STREAM_WAL,
+	NO_WAL,     /// 不备份WAL文件，只备份数据文件和back_label
+	FETCH_WAL,  /// 使用fetch方式
+	STREAM_WAL, /// 使用流方式。
 } IncludeWal;
 
 /*
@@ -387,7 +387,7 @@ tablespace_list_append(const char *arg)
 
 
 static void
-usage(void)
+usage(void) /// 一个简单的函数，就是调用printf显示pg_basebackup的使用参数
 {
 	printf(_("%s takes a base backup of a running PostgreSQL server.\n\n"),
 		   progname);

@@ -485,7 +485,7 @@ pg_fdatasync(int fd)
 		return 0;
 
 retry:
-	rc = fdatasync(fd);
+	rc = fdatasync(fd); /// 这个函数可以参考这个网址：https://man7.org/linux/man-pages/man3/fdatasync.3p.html
 
 	if (rc == -1 && errno == EINTR)
 		goto retry;
@@ -1975,7 +1975,7 @@ PathNameDeleteTemporaryFile(const char *path, bool error_on_failure)
  * close a file when done with it
  */
 void
-FileClose(File file)
+FileClose(File file) /// typedef int File;
 {
 	Vfd		   *vfdP;
 
@@ -1989,7 +1989,7 @@ FileClose(File file)
 	if (!FileIsNotOpen(file))
 	{
 		/* close the file */
-		if (close(vfdP->fd) != 0)
+		if (close(vfdP->fd) != 0) /// 调用close()系统调用来关闭文件
 		{
 			/*
 			 * We may need to panic on failure to close non-temporary files;
