@@ -195,10 +195,10 @@ int			io_direct_flags;
 
 typedef struct vfd
 {
-	int			fd;				/* current FD, or VFD_CLOSED if none */
+	int			fd;				/* current FD, or VFD_CLOSED if none */ /// 文件句柄，-1表示文件被关闭
 	unsigned short fdstate;		/* bitflags for VFD's state */
 	ResourceOwner resowner;		/* owner, for automatic cleanup */
-	File		nextFree;		/* link to next free VFD, if in freelist */
+	File		nextFree;		/* link to next free VFD, if in freelist */ /// typedef int File; 就是一个数组的下标
 	File		lruMoreRecently;	/* doubly linked recency-of-use list */
 	File		lruLessRecently;
 	off_t		fileSize;		/* current size of file (0 if not temporary) */
@@ -407,7 +407,7 @@ pg_fsync(int fd)
 	 * Doing this sanity check here counts for the case where fsync() is
 	 * disabled.
 	 */
-	if (fstat(fd, &st) == 0)
+	if (fstat(fd, &st) == 0) /// fstat — get file status 参见：https://man7.org/linux/man-pages/man3/fstat.3p.html
 	{
 		int			desc_flags = fcntl(fd, F_GETFL);
 
@@ -500,7 +500,7 @@ retry:
  * not a directory, false otherwise.
  */
 bool
-pg_file_exists(const char *name)
+pg_file_exists(const char *name) /// 检查一个绝对路径的文件名是否存在，实际上使用了stat()系统调用来检测。
 {
 	struct stat st;
 
@@ -1108,7 +1108,7 @@ BasicOpenFile(const char *fileName, int fileFlags)
 int
 BasicOpenFilePerm(const char *fileName, int fileFlags, mode_t fileMode)
 {
-	int			fd;
+	int			fd; /// 使用open()的系统调用来打开文件。
 
 tryAgain:
 #ifdef PG_O_DIRECT_USE_F_NOCACHE
@@ -1134,7 +1134,7 @@ tryAgain:
 	fd = open(fileName, fileFlags, fileMode);
 #endif
 
-	if (fd >= 0)
+	if (fd >= 0) /// 成功打开文件了，就返回文件的句柄。
 	{
 #ifdef PG_O_DIRECT_USE_F_NOCACHE
 		if (fileFlags & PG_O_DIRECT)
@@ -1975,7 +1975,7 @@ PathNameDeleteTemporaryFile(const char *path, bool error_on_failure)
  * close a file when done with it
  */
 void
-FileClose(File file) /// typedef int File;
+FileClose(File file) /// typedef int File; 所以File类型就是一个整数，代表着一个数组的下标。
 {
 	Vfd		   *vfdP;
 

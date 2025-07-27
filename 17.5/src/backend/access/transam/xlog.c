@@ -572,7 +572,7 @@ static WALInsertLockPadded *WALInsertLocks = NULL;
 /*
  * We maintain an image of pg_control in shared memory.
  */
-static ControlFileData *ControlFile = NULL;
+static ControlFileData *ControlFile = NULL; /// ControlFile指针指向了共享内存的保存控制文件ControlFileData的内存。
 
 /*
  * Calculate the amount of space left on the page after 'endptr'. Beware
@@ -4348,7 +4348,7 @@ ReadControlFile(void) /// 读取控制文件，就是$PGDATA/global/pg_control �
 	}
 	pgstat_report_wait_end();
 
-	close(fd);
+	close(fd); /// 以上三步是通过open/read/close调用，把控制文件的内容读进ControlFile指向的内存块。
 
 	/*
 	 * Check for expected pg_control format version.  If this is wrong, the
@@ -4356,7 +4356,7 @@ ReadControlFile(void) /// 读取控制文件，就是$PGDATA/global/pg_control �
 	 * of bytes.  Complaining about wrong version will probably be more
 	 * enlightening than complaining about wrong CRC.
 	 */
-
+	/// 以下是校验控制文件中的内容。
 	if (ControlFile->pg_control_version != PG_CONTROL_VERSION && ControlFile->pg_control_version % 65536 == 0 && ControlFile->pg_control_version / 65536 != 0)
 		ereport(FATAL,
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
@@ -4819,8 +4819,9 @@ void
 LocalProcessControlFile(bool reset)
 {
 	Assert(reset || ControlFile == NULL);
-	ControlFile = palloc(sizeof(ControlFileData));
-	ReadControlFile();
+	ControlFile = palloc(sizeof(ControlFileData)); /// static ControlFileData *ControlFile = NULL;
+	/// 这个时候ControlFile是指向私有内存中的指针。
+	ReadControlFile(); /// 读取控制文件中的内容到ControlFile指针指向的内容中，并对控制文件的信息进行校验。
 }
 
 /*

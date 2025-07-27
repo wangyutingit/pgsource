@@ -101,11 +101,11 @@ static int	on_proc_exit_index,
  * ----------------------------------------------------------------
  */
 void
-proc_exit(int code)
+proc_exit(int code) /// 做一些清理工作，然后终止本进程。
 {
 	/* not safe if forked by system(), etc. */
 	if (MyProcPid != (int) getpid())
-		elog(PANIC, "proc_exit() called in child process");
+		elog(PANIC, "proc_exit() called in child process"); /// 再次检查进程号是否正确。
 
 	/* Clean up everything that must be cleaned up */
 	proc_exit_prepare(code);
@@ -153,7 +153,8 @@ proc_exit(int code)
 
 	elog(DEBUG3, "exit(%d)", code);
 
-	exit(code);
+	exit(code); /// exit - cause normal process termination
+	/// 请参考： https://man7.org/linux/man-pages/man3/exit.3.html
 }
 
 /*
@@ -209,7 +210,7 @@ proc_exit_prepare(int code)
 	 * previously-completed callbacks).  So, an infinite loop should not be
 	 * possible.
 	 */
-	while (--on_proc_exit_index >= 0)
+	while (--on_proc_exit_index >= 0) /// 依次调用已经注册的退出函数，进行资源的清理工作。
 		on_proc_exit_list[on_proc_exit_index].function(code,
 													   on_proc_exit_list[on_proc_exit_index].arg);
 
@@ -225,7 +226,7 @@ proc_exit_prepare(int code)
  * ------------------
  */
 void
-shmem_exit(int code)
+shmem_exit(int code) /// 依次执行已经注册的退出函数。
 {
 	shmem_exit_inprogress = true;
 

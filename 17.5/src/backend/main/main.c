@@ -58,9 +58,9 @@ static void check_root(const char *progname);
 int
 main(int argc, char *argv[]) /// 这里是PostgreSQL主进程的入口函数。
 {
-	bool		do_check_root = true; /// 缺省情况下是要检查 root 的权限的，PG 禁止以 root 用户启动
+	bool		do_check_root = true; /// 缺省情况下是要检查root的权限的，PG禁止以root用户启动，但某些轻量级的操作，如检查参数配置是否合理，root用户也可以运行本程序。
 
-	reached_main = true; /// 表示已经进入到了main函数中了。
+	reached_main = true; /// 表示已经进入到了main函数中了。有些代码可能会在进入main函数之前就被执行了，所以使用这个布尔变量区分是否正式进入到main函数当中。
 
 	/*
 	 * If supported on the current platform, set up a handler to be called if
@@ -70,12 +70,12 @@ main(int argc, char *argv[]) /// 这里是PostgreSQL主进程的入口函数。
 	pgwin32_install_crashdump_handler();
 #endif
 
-	progname = get_progname(argv[0]); /// 去掉前面的路径，只返回 postgres
+	progname = get_progname(argv[0]); /// 去掉前面的路径，只返回postgres
 
 	/*
 	 * Platform-specific startup hacks
 	 */
-	startup_hacks(progname); /// 在 Linux 平台下啥也没有做
+	startup_hacks(progname); /// 在Linux平台下啥也没有做
 
 	/*
 	 * Remember the physical location of the initially given argv[] array for
@@ -98,7 +98,7 @@ main(int argc, char *argv[]) /// 这里是PostgreSQL主进程的入口函数。
 	 * anywhere but stderr until GUC settings get loaded.
 	 */
 	MyProcPid = getpid(); /// MyProcPid 里面保存了本进程的进程号。pid_t getpid(void); 这是一个系统调用
-	MemoryContextInit(); /// 初始化内存池。整个 PG 源代码中仅仅在这里调用了本函数。TopMemoryContext和ErrorContext从这里开始有效。
+	MemoryContextInit(); /// 初始化内存池。整个PG源代码中仅仅在这里调用了本函数。TopMemoryContext和ErrorContext从这里开始有效。
 
 	/*
 	 * Set up locale information
@@ -144,14 +144,14 @@ main(int argc, char *argv[]) /// 这里是PostgreSQL主进程的入口函数。
 	 */
 	if (argc > 1)
 	{
-		if (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-?") == 0) /// 如果带参数--help 就显示帮助信息后退出
+		if (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-?") == 0) /// 如果带参数--help，就显示帮助信息后退出。
 		{
 			help(progname);
 			exit(0);
 		}
-		if (strcmp(argv[1], "--version") == 0 || strcmp(argv[1], "-V") == 0) /// 如果带参数--version 就显示版本信息后退出
+		if (strcmp(argv[1], "--version") == 0 || strcmp(argv[1], "-V") == 0) /// 如果带参数--version，就显示版本信息后退出。
 		{
-			fputs(PG_BACKEND_VERSIONSTR, stdout);
+			fputs(PG_BACKEND_VERSIONSTR, stdout); /// #define PG_BACKEND_VERSIONSTR "postgres (PostgreSQL) " PG_VERSION "\n"
 			exit(0);
 		}
 
@@ -167,7 +167,7 @@ main(int argc, char *argv[]) /// 这里是PostgreSQL主进程的入口函数。
 		 */
 		if (strcmp(argv[1], "--describe-config") == 0)
 			do_check_root = false;
-		else if (argc > 2 && strcmp(argv[1], "-C") == 0)
+		else if (argc > 2 && strcmp(argv[1], "-C") == 0) /// 在这两种情况下可以允许root用户执行postgres程序
 			do_check_root = false;
 	}
 
@@ -176,7 +176,7 @@ main(int argc, char *argv[]) /// 这里是PostgreSQL主进程的入口函数。
 	 * option.
 	 */
 	if (do_check_root) /// 如果需要检查是否以root用户启动，就检查一下。如果是root执行本程序，就直接退出了。
-		check_root(progname); /// progname = "postgres"
+		check_root(progname); /// progname = "postgres"，这个参数仅供出错时，在屏幕上显示使用，没有别的用途。
 
 	/*
 	 * Dispatch to one of various subprograms depending on first argument.

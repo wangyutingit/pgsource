@@ -496,7 +496,7 @@ PostmasterMain(int argc, char *argv[]) /// 这里是真正的主进程入口函�
 
 	InitProcessGlobals(); /// 做一些简单的初始化的工作，主要是记录本进程启动的时间戳，产生一个随机值。
 
-	PostmasterPid = MyProcPid;
+	PostmasterPid = MyProcPid; /// 在main()函数中执行过MyProcPid = getpid();所以MyProcPid包含本进程的进程号。
 
 	IsPostmasterEnvironment = true; /// 表明我们在postmaster进程当中
 
@@ -527,6 +527,7 @@ PostmasterMain(int argc, char *argv[]) /// 这里是真正的主进程入口函�
 											  "Postmaster",
 											  ALLOCSET_DEFAULT_SIZES);
 	MemoryContextSwitchTo(PostmasterContext); /// 单独产生一个内存池PostmasterContext，放在TopMemoryContext下面
+	/// 由主进程派生的子进程，根据自己的需要，可能会删除掉PostmasterContext。
 
 	/* Initialize paths to installation files */
 	getInstallationPaths(argv[0]); /// argv[0]是带路径的，如/xxxx/xxxxx/postgres
@@ -902,7 +903,7 @@ PostmasterMain(int argc, char *argv[]) /// 这里是真正的主进程入口函�
 	 * processes will inherit the correct function pointer and not need to
 	 * repeat the test.
 	 */
-	LocalProcessControlFile(false);
+	LocalProcessControlFile(false); /// 读取控制文件的内容到一个指针指向的内容中。如果控制文件中的内容不合法，就报错退出了。
 
 	/*
 	 * Register the apply launcher.  It's probably a good idea to call this
@@ -1039,7 +1040,7 @@ PostmasterMain(int argc, char *argv[]) /// 这里是真正的主进程入口函�
 	 * process is invoked. Because, after that, they can be used by
 	 * postmaster's SIGUSR1 signal handler.
 	 */
-	RemovePromoteSignalFiles(); /// 就是调用unlink系统函数删除promote文件
+	RemovePromoteSignalFiles(); /// 这个函数比较简单，就是调用unlink系统函数删除promote文件
 
 	/* Do the same for logrotate signal file */
 	RemoveLogrotateSignalFiles();
@@ -1054,7 +1055,7 @@ PostmasterMain(int argc, char *argv[]) /// 这里是真正的主进程入口函�
 	/*
 	 * If enabled, start up syslogger collection subprocess
 	 */
-	SysLoggerPID = SysLogger_Start(); /// 根据参数配置来决定是否启动日志搜集进程
+	SysLoggerPID = SysLogger_Start(); /// 根据参数配置来决定是否启动日志搜集进程，缺省情况下是不启动这个进程。
 
 	/*
 	 * Reset whereToSendOutput from DestDebug (its starting state) to
@@ -3672,7 +3673,7 @@ report_fork_failure_to_client(ClientSocket *client_sock, int errnum)
  * Do NOT call exit() directly --- always go through here!
  */
 static void
-ExitPostmaster(int status)
+ExitPostmaster(int status) /// 退出postmaster主进程，会在本进程退出之前执行很多已经注册的函数。
 {
 #ifdef HAVE_PTHREAD_IS_THREADED_NP
 
