@@ -158,7 +158,7 @@ PgArchShmemSize(void)
 {
 	Size		size = 0;
 
-	size = add_size(size, sizeof(PgArchData));
+	size = add_size(size, sizeof(PgArchData)); /// 实际上就是 size = sizeof(PgArchData)
 
 	return size;
 }
@@ -172,11 +172,11 @@ PgArchShmemInit(void)
 	PgArch = (PgArchData *)
 		ShmemInitStruct("Archiver Data", PgArchShmemSize(), &found);
 
-	if (!found)
+	if (!found) /// 第一次往哈希表中插入记录。
 	{
 		/* First time through, so initialize */
 		MemSet(PgArch, 0, PgArchShmemSize());
-		PgArch->pgprocno = INVALID_PROC_NUMBER;
+		PgArch->pgprocno = INVALID_PROC_NUMBER; /// #define INVALID_PROC_NUMBER		(-1)
 		pg_atomic_init_u32(&PgArch->force_dir_scan, 0);
 	}
 }
@@ -214,11 +214,11 @@ PgArchCanRestart(void)
 
 /* Main entry point for archiver process */
 void
-PgArchiverMain(char *startup_data, size_t startup_data_len)
+PgArchiverMain(char *startup_data, size_t startup_data_len) /// 归档进程的入口
 {
 	Assert(startup_data_len == 0);
 
-	MyBackendType = B_ARCHIVER;
+	MyBackendType = B_ARCHIVER; /// 设置本进程的类型为归档进程。
 	AuxiliaryProcessMainCommon();
 
 	/*
@@ -268,7 +268,7 @@ PgArchiverMain(char *startup_data, size_t startup_data_len)
 	/* Load the archive_library. */
 	LoadArchiveLibrary();
 
-	pgarch_MainLoop();
+	pgarch_MainLoop(); /// 主要的循环体，大部分逻辑都在这里。
 
 	proc_exit(0);
 }
@@ -297,7 +297,7 @@ static void
 pgarch_waken_stop(SIGNAL_ARGS)
 {
 	/* set flag to do a final cycle and shut down afterwards */
-	ready_to_stop = true;
+	ready_to_stop = true; /// 设置一下标志位，表示要退出主循环。
 	SetLatch(MyLatch);
 }
 
@@ -321,7 +321,7 @@ pgarch_MainLoop(void)
 		ResetLatch(MyLatch);
 
 		/* When we get SIGUSR2, we do one more archive cycle, then exit */
-		time_to_stop = ready_to_stop;
+		time_to_stop = ready_to_stop; /// 控制是否退出主循环的原子性变量： static volatile sig_atomic_t ready_to_stop = false;
 
 		/* Check for barrier events and config update */
 		HandlePgArchInterrupts();
@@ -379,7 +379,7 @@ pgarch_MainLoop(void)
 static void
 pgarch_ArchiverCopyLoop(void)
 {
-	char		xlog[MAX_XFN_CHARS + 1];
+	char		xlog[MAX_XFN_CHARS + 1]; /// #define MAX_XFN_CHARS	40
 
 	/* force directory scan in the first call to pgarch_readyXlog() */
 	arch_files->arch_files_size = 0;
@@ -908,11 +908,14 @@ HandlePgArchInterrupts(void)
  * Loads the archiving callbacks into our local ArchiveCallbacks.
  */
 static void
-LoadArchiveLibrary(void)
+LoadArchiveLibrary(void) /// 这种情况使用的很少。
 {
 	ArchiveModuleInit archive_init;
 
-	if (XLogArchiveLibrary[0] != '\0' && XLogArchiveCommand[0] != '\0')
+	/// src/backend/access/transam/xlog.c:char	   *XLogArchiveCommand = NULL;
+	/// char	   *XLogArchiveLibrary = "";
+	/// 这个逻辑很简单，就是判断它们是否被设置为非空的值。
+	if (XLogArchiveLibrary[0] != '\0' && XLogArchiveCommand[0] != '\0') /// 如果XLogArchiveCommand是NULL该怎么办？这是不是一个bug？
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg("both \"archive_command\" and \"archive_library\" set"),
@@ -923,11 +926,11 @@ LoadArchiveLibrary(void)
 	 * Otherwise, load the library and call its _PG_archive_module_init().
 	 */
 	if (XLogArchiveLibrary[0] == '\0')
-		archive_init = shell_archive_init;
+		archive_init = shell_archive_init; /// 返回函数指针
 	else
 		archive_init = (ArchiveModuleInit)
 			load_external_function(XLogArchiveLibrary,
-								   "_PG_archive_module_init", false, NULL);
+								   "_PG_archive_module_init", false, NULL); /// 加载指定的动态库，并寻找_PG_archive_module_init函数
 
 	if (archive_init == NULL)
 		ereport(ERROR,

@@ -101,7 +101,7 @@
  */
 typedef struct
 {
-	SyncRequestType type;		/* request type */
+	SyncRequestType type;		/* request type */ /// 枚举类型：typedef enum SyncRequestType
 	FileTag		ftag;			/* file identifier */
 } CheckpointerRequest;
 
@@ -170,14 +170,14 @@ static void ReqCheckpointHandler(SIGNAL_ARGS);
  * basic execution environment, but not enabled signals yet.
  */
 void
-CheckpointerMain(char *startup_data, size_t startup_data_len)
+CheckpointerMain(char *startup_data, size_t startup_data_len) /// CheckPoint的主入口函数
 {
 	sigjmp_buf	local_sigjmp_buf;
 	MemoryContext checkpointer_context;
 
 	Assert(startup_data_len == 0);
 
-	MyBackendType = B_CHECKPOINTER;
+	MyBackendType = B_CHECKPOINTER; /// 记录本进程的类型。
 	AuxiliaryProcessMainCommon();
 
 	CheckpointerShmem->checkpointer_pid = MyProcPid; /// 在检查点相关的共享内存中记录本进程的进程号pid。
@@ -207,7 +207,8 @@ CheckpointerMain(char *startup_data, size_t startup_data_len)
 	/*
 	 * Initialize so that first time-driven event happens at the correct time.
 	 */
-	last_checkpoint_time = last_xlog_switch_time = (pg_time_t) time(NULL);
+	last_checkpoint_time = last_xlog_switch_time = (pg_time_t) time(NULL); /// typedef int64 pg_time_t;
+	/// time(NULL)是获取当前时间，https://man7.org/linux/man-pages/man2/time.2.html
 
 	/*
 	 * Write out stats after shutdown. This needs to be called by exactly one
@@ -227,7 +228,7 @@ CheckpointerMain(char *startup_data, size_t startup_data_len)
 	 */
 	checkpointer_context = AllocSetContextCreate(TopMemoryContext,
 												 "Checkpointer",
-												 ALLOCSET_DEFAULT_SIZES);
+												 ALLOCSET_DEFAULT_SIZES); /// 在TopMemoryContext底下创建一个新的内存池。
 	MemoryContextSwitchTo(checkpointer_context);
 
 	/*
@@ -334,7 +335,7 @@ CheckpointerMain(char *startup_data, size_t startup_data_len)
 	 */
 	for (;;) /// 无限循环。检查点进程伴随着整个数据库集群实例的生命周期而存在。
 	{
-		bool		do_checkpoint = false; /// 本变量表明是否需要执行一次检查点，每次循环时它的值都设置为 false。
+		bool		do_checkpoint = false; /// 本变量表明是否需要执行一次检查点，每次循环时它的值都设置为false。
 		int			flags = 0;
 		pg_time_t	now;
 		int			elapsed_secs;
@@ -349,15 +350,16 @@ CheckpointerMain(char *startup_data, size_t startup_data_len)
 		 * Process any requests or signals received recently.
 		 */
 		AbsorbSyncRequests();
-		HandleCheckpointerInterrupts();
+		HandleCheckpointerInterrupts(); /// 处理新的中断请求
 
 		/*
 		 * Detect a pending checkpoint request by checking whether the flags
 		 * word in shared memory is nonzero.  We shouldn't need to acquire the
 		 * ckpt_lck for this.
 		 */
-		if (((volatile CheckpointerShmemStruct *) CheckpointerShmem)->ckpt_flags) /// 如果共享内存中的 ckpt_flags 被设置了，就执行检查点操作。
-		{
+		
+		/// 如果共享内存中的 ckpt_flags 被设置了，就执行检查点操作。
+		if (((volatile CheckpointerShmemStruct *) CheckpointerShmem)->ckpt_flags) 
 			do_checkpoint = true;
 			chkpt_or_rstpt_requested = true;
 		}
@@ -368,14 +370,14 @@ CheckpointerMain(char *startup_data, size_t startup_data_len)
 		 * occurs without an external request, but we set the CAUSE_TIME flag
 		 * bit even if there is also an external request.
 		 */
-		now = (pg_time_t) time(NULL);
-		elapsed_secs = now - last_checkpoint_time;
+		now = (pg_time_t) time(NULL); /// 获取当前的时间
+		elapsed_secs = now - last_checkpoint_time; /// elapsed_secs是自上一次检查点以后流逝的秒数。
 		if (elapsed_secs >= CheckPointTimeout) /// 因为超时，会触发检查点操作。
 		{
 			if (!do_checkpoint)
 				chkpt_or_rstpt_timed = true;
 			do_checkpoint = true;
-			flags |= CHECKPOINT_CAUSE_TIME;
+			flags |= CHECKPOINT_CAUSE_TIME; /// 设置标志位，表示是因为超时导致的检查点。
 		}
 
 		/*
@@ -387,7 +389,7 @@ CheckpointerMain(char *startup_data, size_t startup_data_len)
 			bool		do_restartpoint;
 
 			/* Check if we should perform a checkpoint or a restartpoint. */
-			do_restartpoint = RecoveryInProgress();
+			do_restartpoint = RecoveryInProgress(); /// 如果处于备库模式，就为true，否则为false
 
 			/*
 			 * Atomically fetch the request flags to figure out what kind of a
@@ -484,7 +486,7 @@ CheckpointerMain(char *startup_data, size_t startup_data_len)
 
 			ConditionVariableBroadcast(&CheckpointerShmem->done_cv);
 
-			if (ckpt_performed)
+			if (ckpt_performed) /// 如果执行了Checkpoint，true/false
 			{
 				/*
 				 * Note we record the checkpoint start time not end time as
@@ -547,7 +549,7 @@ CheckpointerMain(char *startup_data, size_t startup_data_len)
 		(void) WaitLatch(MyLatch,
 						 WL_LATCH_SET | WL_TIMEOUT | WL_EXIT_ON_PM_DEATH,
 						 cur_timeout * 1000L /* convert to ms */ ,
-						 WAIT_EVENT_CHECKPOINTER_MAIN);
+						 WAIT_EVENT_CHECKPOINTER_MAIN); /// 等待某个Latch，可以通过SetLatch(MyLatch)让主循环从这个等待状态中脱离出来。
 	}
 }
 
@@ -856,13 +858,13 @@ IsCheckpointOnSchedule(double progress)
 
 /* SIGINT: set flag to run a normal checkpoint right away */
 static void
-ReqCheckpointHandler(SIGNAL_ARGS)
+ReqCheckpointHandler(SIGNAL_ARGS) /// 别的进程会发送SIGINT信号给checkpointer进程，要求执行一个检查点。
 {
 	/*
 	 * The signaling process should have set ckpt_flags nonzero, so all we
 	 * need do is ensure that our main loop gets kicked out of any wait.
 	 */
-	SetLatch(MyLatch);
+	SetLatch(MyLatch); /// 让检查点的主进程退出等待事件，立刻执行下一次循环。
 }
 
 
@@ -974,7 +976,7 @@ RequestCheckpoint(int flags)
 
 	old_failed = CheckpointerShmem->ckpt_failed;
 	old_started = CheckpointerShmem->ckpt_started;
-	CheckpointerShmem->ckpt_flags |= (flags | CHECKPOINT_REQUESTED);
+	CheckpointerShmem->ckpt_flags |= (flags | CHECKPOINT_REQUESTED); /// 设置共享内存中的ckpt_flags
 
 	SpinLockRelease(&CheckpointerShmem->ckpt_lck);
 
@@ -991,7 +993,7 @@ RequestCheckpoint(int flags)
 #define MAX_SIGNAL_TRIES 600	/* max wait 60.0 sec */
 	for (ntries = 0;; ntries++)
 	{
-		if (CheckpointerShmem->checkpointer_pid == 0)
+		if (CheckpointerShmem->checkpointer_pid == 0) /// 此时checkpointer进程还没有启动。
 		{
 			if (ntries >= MAX_SIGNAL_TRIES || !(flags & CHECKPOINT_WAIT))
 			{
@@ -1000,7 +1002,7 @@ RequestCheckpoint(int flags)
 				break;
 			}
 		}
-		else if (kill(CheckpointerShmem->checkpointer_pid, SIGINT) != 0)
+		else if (kill(CheckpointerShmem->checkpointer_pid, SIGINT) != 0) /// 向checkpointer进程发送SIGINT信号。
 		{
 			if (ntries >= MAX_SIGNAL_TRIES || !(flags & CHECKPOINT_WAIT))
 			{

@@ -30,7 +30,7 @@
  * the child must unblock.
  */
 pid_t
-fork_process(void)
+fork_process(void) /// 基本上就是对fork的包装，并没有做多少额外的工作。
 {
 	pid_t		result;
 	const char *oomfilename;
@@ -67,7 +67,7 @@ fork_process(void)
 	if (result == 0)
 	{
 		/* fork succeeded, in child */
-		MyProcPid = getpid();
+		MyProcPid = getpid(); /// 在子进程的第一件事情就是设置MyProcPid为本进程的进程号。
 #ifdef LINUX_PROFILE
 		setitimer(ITIMER_PROF, &prof_itimer, NULL);
 #endif
@@ -114,7 +114,7 @@ fork_process(void)
 		}
 
 		/* do post-fork initialization for random number generation */
-		pg_strong_random_init();
+		pg_strong_random_init(); /// 这个函数是空的，啥也没做。
 	}
 	else
 	{

@@ -14,6 +14,6 @@
 #ifndef ITEM_H
 #define ITEM_H
 
-typedef Pointer Item;
+typedef Pointer Item; /// typedef char *Pointer; 一个指针的定义
 
 #endif							/* ITEM_H */

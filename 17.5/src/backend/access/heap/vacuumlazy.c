@@ -125,7 +125,7 @@
 /* Phases of vacuum during which we report error context. */
 typedef enum
 {
-	VACUUM_ERRCB_PHASE_UNKNOWN,
+	VACUUM_ERRCB_PHASE_UNKNOWN,   /// VACUUM_ERRCB_PHASE_UNKNOWN = 0
 	VACUUM_ERRCB_PHASE_SCAN_HEAP,
 	VACUUM_ERRCB_PHASE_VACUUM_INDEX,
 	VACUUM_ERRCB_PHASE_VACUUM_HEAP,
@@ -171,7 +171,7 @@ typedef struct LVRelState
 	char	   *indname;		/* Current index name */
 	BlockNumber blkno;			/* used only for heap operations */
 	OffsetNumber offnum;		/* used only for heap operations */
-	VacErrPhase phase;
+	VacErrPhase phase; /// 表示vacuum不同阶段的枚举类型。
 	bool		verbose;		/* VACUUM VERBOSE? */
 
 	/*
@@ -281,7 +281,7 @@ static void restore_vacuum_error_info(LVRelState *vacrel,
 
 
 /*
- *	heap_vacuum_rel() -- perform VACUUM for one heap relation
+ *	heap_vacuum_rel() -- perform VACUUM for one heap relation /// 对一个堆表进行vacuum
  *
  *		This routine sets things up for and then calls lazy_scan_heap, where
  *		almost all work actually takes place.  Finalizes everything after call
@@ -347,7 +347,7 @@ heap_vacuum_rel(Relation rel, VacuumParams *params,
 	vacrel->relnamespace = get_namespace_name(RelationGetNamespace(rel));
 	vacrel->relname = pstrdup(RelationGetRelationName(rel));
 	vacrel->indname = NULL;
-	vacrel->phase = VACUUM_ERRCB_PHASE_UNKNOWN;
+	vacrel->phase = VACUUM_ERRCB_PHASE_UNKNOWN; /// 初始化阶段
 	vacrel->verbose = verbose;
 	errcallback.callback = vacuum_error_callback;
 	errcallback.arg = vacrel;
@@ -362,7 +362,7 @@ heap_vacuum_rel(Relation rel, VacuumParams *params,
 	if (instrument && vacrel->nindexes > 0)
 	{
 		/* Copy index names used by instrumentation (not error reporting) */
-		indnames = palloc(sizeof(char *) * vacrel->nindexes);
+		indnames = palloc(sizeof(char *) * vacrel->nindexes); /// 首先分配vacrel->nindexes个指针，指向不同的字符串。
 		for (int i = 0; i < vacrel->nindexes; i++)
 			indnames[i] = pstrdup(RelationGetRelationName(vacrel->indrels[i]));
 	}
@@ -2818,14 +2818,16 @@ static void
 dead_items_alloc(LVRelState *vacrel, int nworkers)
 {
 	VacDeadItemsInfo *dead_items_info;
-	int			vac_work_mem = AmAutoVacuumWorkerProcess() &&
+	int			vac_work_mem = AmAutoVacuumWorkerProcess() && /// #define AmAutoVacuumWorkerProcess()	(MyBackendType == B_AUTOVAC_WORKER)
 		autovacuum_work_mem != -1 ?
 		autovacuum_work_mem : maintenance_work_mem;
+	/// 设置vac_work_mem的大小的逻辑是：如果是autovacuum的worker进程，且autovacuum_work_mem的值有效(不是-1)，则使用autovacuum_work_mem
+	/// 否则使用maintenance_work_mem
 
 	/*
 	 * Initialize state for a parallel vacuum.  As of now, only one worker can
 	 * be used for an index, so we invoke parallelism only if there are at
-	 * least two indexes on a table.
+	 * least two indexes on a table. /// 一个索引一个worker进程，一个表上至少有两个索引，才能启动并发vacuum。
 	 */
 	if (nworkers >= 0 && vacrel->nindexes > 1 && vacrel->do_index_vacuuming)
 	{
@@ -2869,11 +2871,11 @@ dead_items_alloc(LVRelState *vacrel, int nworkers)
 	 */
 
 	dead_items_info = (VacDeadItemsInfo *) palloc(sizeof(VacDeadItemsInfo));
-	dead_items_info->max_bytes = vac_work_mem * 1024L;
+	dead_items_info->max_bytes = vac_work_mem * 1024L; /// vac_work_mem的单位是1KB。
 	dead_items_info->num_items = 0;
 	vacrel->dead_items_info = dead_items_info;
 
-	vacrel->dead_items = TidStoreCreateLocal(dead_items_info->max_bytes, true);
+	vacrel->dead_items = TidStoreCreateLocal(dead_items_info->max_bytes, true); /// 根据计算的字节大小，内存池，供将来的dead_item使用。
 }
 
 /*
