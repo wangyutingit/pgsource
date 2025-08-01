@@ -181,6 +181,7 @@ CheckpointerMain(char *startup_data, size_t startup_data_len)
 	AuxiliaryProcessMainCommon();
 
 	CheckpointerShmem->checkpointer_pid = MyProcPid; /// 在检查点相关的共享内存中记录本进程的进程号pid。
+	/// 通过检查checkpointer_pid是否为0，就可以判断检查点进程是否已经启动了。
 
 	/*
 	 * Properly accept or ignore signals the postmaster might send us
@@ -207,6 +208,7 @@ CheckpointerMain(char *startup_data, size_t startup_data_len)
 	/*
 	 * Initialize so that first time-driven event happens at the correct time.
 	 */
+	/// 在本进程启动时初始化一下这两个时间变量。
 	last_checkpoint_time = last_xlog_switch_time = (pg_time_t) time(NULL);
 
 	/*
@@ -228,7 +230,7 @@ CheckpointerMain(char *startup_data, size_t startup_data_len)
 	checkpointer_context = AllocSetContextCreate(TopMemoryContext,
 												 "Checkpointer",
 												 ALLOCSET_DEFAULT_SIZES);
-	MemoryContextSwitchTo(checkpointer_context);
+	MemoryContextSwitchTo(checkpointer_context); /// 以后的内存操作都在这个内存池中完成。
 
 	/*
 	 * If an exception is encountered, processing resumes here.
@@ -334,9 +336,9 @@ CheckpointerMain(char *startup_data, size_t startup_data_len)
 	 */
 	for (;;) /// 无限循环。检查点进程伴随着整个数据库集群实例的生命周期而存在。
 	{
-		bool		do_checkpoint = false; /// 本变量表明是否需要执行一次检查点，每次循环时它的值都设置为 false。
+		bool		do_checkpoint = false; /// 本变量表明是否需要执行一次检查点，每次循环时它的值都设置为false。
 		int			flags = 0;
-		pg_time_t	now;
+		pg_time_t	now;  /// typedef int64 pg_time_t;
 		int			elapsed_secs;
 		int			cur_timeout;
 		bool		chkpt_or_rstpt_requested = false;
@@ -358,7 +360,7 @@ CheckpointerMain(char *startup_data, size_t startup_data_len)
 		 */
 		if (((volatile CheckpointerShmemStruct *) CheckpointerShmem)->ckpt_flags) /// 如果共享内存中的 ckpt_flags 被设置了，就执行检查点操作。
 		{
-			do_checkpoint = true;
+			do_checkpoint = true; /// 这个布尔变量表示本次循环要做一次检查点操作。
 			chkpt_or_rstpt_requested = true;
 		}
 
@@ -369,13 +371,13 @@ CheckpointerMain(char *startup_data, size_t startup_data_len)
 		 * bit even if there is also an external request.
 		 */
 		now = (pg_time_t) time(NULL);
-		elapsed_secs = now - last_checkpoint_time;
+		elapsed_secs = now - last_checkpoint_time; /// 记录距离上一次检查点执行后的时间
 		if (elapsed_secs >= CheckPointTimeout) /// 因为超时，会触发检查点操作。
 		{
 			if (!do_checkpoint)
-				chkpt_or_rstpt_timed = true;
+				chkpt_or_rstpt_timed = true; /// 有可能ckpt_flags被设置为非零，应该统计为request的检查点。
 			do_checkpoint = true;
-			flags |= CHECKPOINT_CAUSE_TIME;
+			flags |= CHECKPOINT_CAUSE_TIME;  /// 设置超时标志。走到这里，flags的初始值是0。
 		}
 
 		/*
@@ -383,11 +385,11 @@ CheckpointerMain(char *startup_data, size_t startup_data_len)
 		 */
 		if (do_checkpoint) /// 如果需要做一个检查点。
 		{
-			bool		ckpt_performed = false;
+			bool		ckpt_performed = false; /// 这个变量表示检查点是否是真的执行了。有时候可能不会执行检查点。
 			bool		do_restartpoint;
 
 			/* Check if we should perform a checkpoint or a restartpoint. */
-			do_restartpoint = RecoveryInProgress();
+			do_restartpoint = RecoveryInProgress(); /// 如果数据库集群处于恢复模式，就执行restartpoint。
 
 			/*
 			 * Atomically fetch the request flags to figure out what kind of a
@@ -396,7 +398,7 @@ CheckpointerMain(char *startup_data, size_t startup_data_len)
 			 */
 			SpinLockAcquire(&CheckpointerShmem->ckpt_lck);
 			flags |= CheckpointerShmem->ckpt_flags;
-			CheckpointerShmem->ckpt_flags = 0;
+			CheckpointerShmem->ckpt_flags = 0; /// 把ckpt_flags清零。
 			CheckpointerShmem->ckpt_started++;
 			SpinLockRelease(&CheckpointerShmem->ckpt_lck);
 
