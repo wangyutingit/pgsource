@@ -1266,7 +1266,7 @@ PostmasterMain(int argc, char *argv[]) /// 这里是真正的主进程入口函�
 	 * Record postmaster options.  We delay this till now to avoid recording
 	 * bogus options (eg, unusable port number).
 	 */
-	if (!CreateOptsFile(argc, argv, my_exec_path))
+	if (!CreateOptsFile(argc, argv, my_exec_path)) /// 创建postmaster.opts文件。如果失败就退出整个进程。
 		ExitPostmaster(1);
 
 	/*
@@ -1637,9 +1637,9 @@ ServerLoop(void)
 	int			nevents;
 
 	ConfigurePostmasterWaitSet(true);
-	last_lockfile_recheck_time = last_touch_time = time(NULL);
+	last_lockfile_recheck_time = last_touch_time = time(NULL); /// 获取当前时间
 
-	for (;;)
+	for (;;) /// 无限循环
 	{
 		time_t		now;
 
@@ -1653,10 +1653,10 @@ ServerLoop(void)
 		 * Latch set by signal handler, or new connection pending on any of
 		 * our sockets? If the latter, fork a child process to deal with it.
 		 */
-		for (int i = 0; i < nevents; i++)
+		for (int i = 0; i < nevents; i++) /// 扫描事件数组
 		{
 			if (events[i].events & WL_LATCH_SET)
-				ResetLatch(MyLatch);
+				ResetLatch(MyLatch); /// 重置latch
 
 			/*
 			 * The following requests are handled unconditionally, even if we
@@ -1700,7 +1700,7 @@ ServerLoop(void)
 		 * fails, we'll just try again later.  Likewise for the checkpointer.
 		 */
 		if (pmState == PM_RUN || pmState == PM_RECOVERY ||
-			pmState == PM_HOT_STANDBY || pmState == PM_STARTUP)
+			pmState == PM_HOT_STANDBY || pmState == PM_STARTUP) /// 处于初始状态时尝试启动checkpointer和bgwriter进程。
 		{
 			if (CheckpointerPID == 0)
 				CheckpointerPID = StartChildProcess(B_CHECKPOINTER);
@@ -4104,7 +4104,7 @@ MaybeStartSlotSyncWorker(void)
 }
 
 /*
- * Create the opts file
+ * Create the opts file /// 创建postmaster.opts文件
  */
 static bool
 CreateOptsFile(int argc, char *argv[], char *fullprogname)

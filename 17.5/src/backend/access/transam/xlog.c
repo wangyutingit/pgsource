@@ -1414,7 +1414,7 @@ WALInsertLockAcquire(void)
  * to WAL.
  */
 static void
-WALInsertLockAcquireExclusive(void)
+WALInsertLockAcquireExclusive(void) /// 加锁，防止别的后台进程写WAL记录。
 {
 	int			i;
 
@@ -6329,7 +6329,7 @@ PerformRecoveryXLogAction(void)
  * shared memory.
  */
 bool
-RecoveryInProgress(void)
+RecoveryInProgress(void) /// 判断恢复是否正在进行中。
 {
 	/*
 	 * We check shared state each time only until we leave recovery mode. We
@@ -6551,12 +6551,12 @@ GetWALInsertionTimeLineIfSet(void)
  * WALInsertLocks[i].lastImportantAt.
  */
 XLogRecPtr
-GetLastImportantRecPtr(void)
+GetLastImportantRecPtr(void) /// 这个函数的算法就是扫描WALInsertLocks数组，一共八个元素，找到里面最大的值。
 {
-	XLogRecPtr	res = InvalidXLogRecPtr;
+	XLogRecPtr	res = InvalidXLogRecPtr; /// #define InvalidXLogRecPtr	0
 	int			i;
 
-	for (i = 0; i < NUM_XLOGINSERT_LOCKS; i++)
+	for (i = 0; i < NUM_XLOGINSERT_LOCKS; i++) /// #define NUM_XLOGINSERT_LOCKS  8
 	{
 		XLogRecPtr	last_important;
 
@@ -6938,7 +6938,7 @@ CreateCheckPoint(int flags)
 	}
 
 	/* Begin filling in the checkpoint WAL record */
-	MemSet(&checkPoint, 0, sizeof(checkPoint));
+	MemSet(&checkPoint, 0, sizeof(checkPoint)); /// 先把这个数据结构清零
 	checkPoint.time = (pg_time_t) time(NULL);
 
 	/*
@@ -6946,7 +6946,7 @@ CreateCheckPoint(int flags)
 	 * pointer. This allows us to begin accumulating changes to assemble our
 	 * starting snapshot of locks and transactions.
 	 */
-	if (!shutdown && XLogStandbyInfoActive())
+	if (!shutdown && XLogStandbyInfoActive()) /// #define XLogStandbyInfoActive() (wal_level >= WAL_LEVEL_REPLICA)
 		checkPoint.oldestActiveXid = GetOldestActiveTransactionId();
 	else
 		checkPoint.oldestActiveXid = InvalidTransactionId;
@@ -6955,7 +6955,7 @@ CreateCheckPoint(int flags)
 	 * Get location of last important record before acquiring insert locks (as
 	 * GetLastImportantRecPtr() also locks WAL locks).
 	 */
-	last_important_lsn = GetLastImportantRecPtr();
+	last_important_lsn = GetLastImportantRecPtr(); /// 扫描一个数组，找到里面最大的LSN
 
 	/*
 	 * If this isn't a shutdown or forced checkpoint, and if there has been no
@@ -6965,7 +6965,7 @@ CreateCheckPoint(int flags)
 	if ((flags & (CHECKPOINT_IS_SHUTDOWN | CHECKPOINT_END_OF_RECOVERY |
 				  CHECKPOINT_FORCE)) == 0)
 	{
-		if (last_important_lsn == ControlFile->checkPoint)
+		if (last_important_lsn == ControlFile->checkPoint) /// 这个表示系统是空闲的，就啥也不做，避免插入重复的检查点记录。
 		{
 			END_CRIT_SECTION();
 			ereport(DEBUG1,
@@ -6991,7 +6991,7 @@ CreateCheckPoint(int flags)
 	/*
 	 * We must block concurrent insertions while examining insert state.
 	 */
-	WALInsertLockAcquireExclusive();
+	WALInsertLockAcquireExclusive(); /// 加锁，防止别的进程写WAL记录。
 
 	checkPoint.fullPageWrites = Insert->fullPageWrites;
 	checkPoint.wal_level = wal_level;
@@ -7606,11 +7606,11 @@ CreateRestartPoint(int flags)
 	 * Check that we're still in recovery mode. It's ok if we exit recovery
 	 * mode after this check, the restart point is valid anyway.
 	 */
-	if (!RecoveryInProgress())
+	if (!RecoveryInProgress()) /// 如果不是处于数据库恢复模式，就啥也不做。
 	{
 		ereport(DEBUG2,
 				(errmsg_internal("skipping restartpoint, recovery has already ended")));
-		return false;
+		return false; /// 返回值为false表示本次操作没有做。
 	}
 
 	/*
@@ -7627,7 +7627,7 @@ CreateRestartPoint(int flags)
 	 * restartpoint. It's assumed that flushing the buffers will do that as a
 	 * side-effect.
 	 */
-	if (XLogRecPtrIsInvalid(lastCheckPointRecPtr) ||
+	if (XLogRecPtrIsInvalid(lastCheckPointRecPtr) || /// #define XLogRecPtrIsInvalid(r)	((r) == InvalidXLogRecPtr) 不为0即为合法。
 		lastCheckPoint.redo <= ControlFile->checkPointCopy.redo)
 	{
 		ereport(DEBUG2,
