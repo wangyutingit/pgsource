@@ -62,7 +62,7 @@
 
 
 /*
- * GUC parameters
+ * GUC parameters /// 这些是vacuum的一些参数。
  */
 int			vacuum_freeze_min_age;
 int			vacuum_freeze_table_age;
@@ -144,7 +144,7 @@ check_vacuum_buffer_usage_limit(int *newval, void **extra,
  * happen in vacuum().
  */
 void
-ExecVacuum(ParseState *pstate, VacuumStmt *vacstmt, bool isTopLevel)
+ExecVacuum(ParseState *pstate, VacuumStmt *vacstmt, bool isTopLevel) /// 执行vacuum和analyze命令的入口函数。
 {
 	VacuumParams params;
 	BufferAccessStrategy bstrategy = NULL;
@@ -411,7 +411,7 @@ ExecVacuum(ParseState *pstate, VacuumStmt *vacstmt, bool isTopLevel)
 	 * Since it is a child of PortalContext, it will go away eventually even
 	 * if we suffer an error; there's no need for special abort cleanup logic.
 	 */
-	vac_context = AllocSetContextCreate(PortalContext,
+	vac_context = AllocSetContextCreate(PortalContext, /// 在PortalContext内存池下面创建子内存池vac_context.
 										"Vacuum",
 										ALLOCSET_DEFAULT_SIZES);
 
@@ -478,7 +478,7 @@ void
 vacuum(List *relations, VacuumParams *params, BufferAccessStrategy bstrategy,
 	   MemoryContext vac_context, bool isTopLevel)
 {
-	static bool in_vacuum = false;
+	static bool in_vacuum = false; /// 注意这是一个static的变量，在下次函数调用时，它的值可能是true。
 
 	const char *stmttype;
 	volatile bool in_outer_xact,
@@ -564,7 +564,7 @@ vacuum(List *relations, VacuumParams *params, BufferAccessStrategy bstrategy,
 	else
 	{
 		Assert(params->options & VACOPT_ANALYZE);
-		if (AmAutoVacuumWorkerProcess())
+		if (AmAutoVacuumWorkerProcess()) /// #define AmAutoVacuumWorkerProcess()	(MyBackendType == B_AUTOVAC_WORKER)
 			use_own_xacts = true;
 		else if (in_outer_xact)
 			use_own_xacts = false;
@@ -1942,7 +1942,7 @@ vac_truncate_clog(TransactionId frozenXID,
 
 
 /*
- *	vacuum_rel() -- vacuum one heap relation
+ *	vacuum_rel() -- vacuum one heap relation /// 对一张表进行VACUUM操作。
  *
  *		relid identifies the relation to vacuum.  If relation is supplied,
  *		use the name therein for reporting any failure to open/lock the rel;

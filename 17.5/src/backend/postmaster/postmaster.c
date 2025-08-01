@@ -1679,7 +1679,7 @@ ServerLoop(void)
 				ClientSocket s;
 
 				if (AcceptConnection(events[i].fd, &s) == STATUS_OK)
-					BackendStartup(&s);
+					BackendStartup(&s); /// 在这里启动postgres进程？
 
 				/* We no longer need the open socket in this process */
 				if (s.sock != PGINVALID_SOCKET)
@@ -3598,9 +3598,10 @@ BackendStartup(ClientSocket *client_sock)
 	/* Hasn't asked to be notified about any bgworkers yet */
 	bn->bgworker_notify = false;
 
-	pid = postmaster_child_launch(B_BACKEND,
+	pid = postmaster_child_launch(B_BACKEND, /// [B_BACKEND] = {"backend", BackendMain, true}, 所以子进程的入口函数是BackendMain
 								  (char *) &startup_data, sizeof(startup_data),
 								  client_sock);
+	/// 子进程的BackendMain会调用PostgresMain
 	if (pid < 0)
 	{
 		/* in parent, fork failed */
@@ -3626,7 +3627,7 @@ BackendStartup(ClientSocket *client_sock)
 	 * of backends.
 	 */
 	bn->pid = pid;
-	bn->bkend_type = BACKEND_TYPE_NORMAL;	/* Can change later to WALSND */
+	bn->bkend_type = BACKEND_TYPE_NORMAL;	/* Can change later to WALSND */ /// walsender和postgres进程本质上就是一回事。
 	dlist_push_head(&BackendList, &bn->elem);
 
 #ifdef EXEC_BACKEND
@@ -4081,7 +4082,7 @@ MaybeStartWalSummarizer(void)
 	if (summarize_wal && WalSummarizerPID == 0 &&
 		(pmState == PM_RUN || pmState == PM_HOT_STANDBY) &&
 		Shutdown <= SmartShutdown)
-		WalSummarizerPID = StartChildProcess(B_WAL_SUMMARIZER);
+		WalSummarizerPID = StartChildProcess(B_WAL_SUMMARIZER); /// WalSumarizePID只在这里赋值。
 }
 
 

@@ -494,7 +494,7 @@ heap_vacuum_rel(Relation rel, VacuumParams *params,
 	 * Call lazy_scan_heap to perform all required heap pruning, index
 	 * vacuuming, and heap vacuuming (plus related processing)
 	 */
-	lazy_scan_heap(vacrel);
+	lazy_scan_heap(vacrel); /// 这个是真正干活的函数。
 
 	/*
 	 * Free resources managed by dead_items_alloc.  This ends parallel mode in
@@ -777,7 +777,7 @@ heap_vacuum_rel(Relation rel, VacuumParams *params,
 }
 
 /*
- *	lazy_scan_heap() -- workhorse function for VACUUM
+ *	lazy_scan_heap() -- workhorse function for VACUUM /// workhorse，马力，真正干活的。
  *
  *		This routine prunes each page in the heap, and considers the need to
  *		freeze remaining tuples with storage (not including pages that can be
@@ -820,7 +820,7 @@ lazy_scan_heap(LVRelState *vacrel)
 				next_fsm_block_to_vacuum = 0;
 	bool		all_visible_according_to_vm;
 
-	Buffer		vmbuffer = InvalidBuffer;
+	Buffer		vmbuffer = InvalidBuffer; /// #define InvalidBuffer	0， typedef int Buffer;
 	const int	initprog_index[] = {
 		PROGRESS_VACUUM_PHASE,
 		PROGRESS_VACUUM_TOTAL_HEAP_BLKS,
@@ -835,22 +835,24 @@ lazy_scan_heap(LVRelState *vacrel)
 	pgstat_progress_update_multi_param(3, initprog_index, initprog_val);
 
 	/* Initialize for the first heap_vac_scan_next_block() call */
-	vacrel->current_block = InvalidBlockNumber;
+	vacrel->current_block = InvalidBlockNumber; /// #define InvalidBlockNumber		((BlockNumber) 0xFFFFFFFF)
 	vacrel->next_unskippable_block = InvalidBlockNumber;
 	vacrel->next_unskippable_allvis = false;
-	vacrel->next_unskippable_vmbuffer = InvalidBuffer;
+	vacrel->next_unskippable_vmbuffer = InvalidBuffer; /// #define InvalidBuffer	0
 
+	/// heap_vac_scan_next_block只有扫描到表的尽头后才会返回false，否则都是返回true。
 	while (heap_vac_scan_next_block(vacrel, &blkno, &all_visible_according_to_vm))
 	{
+		/// blkno记录着要处理的块号。
 		Buffer		buf;
 		Page		page;
 		bool		has_lpdead_items;
 		bool		got_cleanup_lock = false;
 
-		vacrel->scanned_pages++;
+		vacrel->scanned_pages++; /// 要处理的块号加一。
 
 		/* Report as block scanned, update error traceback information */
-		pgstat_progress_update_param(PROGRESS_VACUUM_HEAP_BLKS_SCANNED, blkno);
+		pgstat_progress_update_param(PROGRESS_VACUUM_HEAP_BLKS_SCANNED, blkno);/// 应该是更新vacuum的统计信息。
 		update_vacuum_error_info(vacrel, NULL, VACUUM_ERRCB_PHASE_SCAN_HEAP,
 								 blkno, InvalidOffsetNumber);
 
@@ -865,7 +867,8 @@ lazy_scan_heap(LVRelState *vacrel)
 		 * one-pass strategy, and the two-pass strategy with the index_cleanup
 		 * param set to 'off'.
 		 */
-		if (vacrel->scanned_pages % FAILSAFE_EVERY_PAGES == 0)
+		/// BlockNumber scanned_pages;      /* # pages examined (not skipped via VM) */
+		if (vacrel->scanned_pages % FAILSAFE_EVERY_PAGES == 0) /// FAILSAFE_EVERY_PAGES = 2^19
 			lazy_check_wraparound_failsafe(vacrel);
 
 		/*
@@ -1090,11 +1093,13 @@ heap_vac_scan_next_block(LVRelState *vacrel, BlockNumber *blkno,
 	BlockNumber next_block;
 
 	/* relies on InvalidBlockNumber + 1 overflowing to 0 on first call */
-	next_block = vacrel->current_block + 1;
+	next_block = vacrel->current_block + 1; /// #define InvalidBlockNumber		((BlockNumber) 0xFFFFFFFF)， 加1，就变成了0。
+	/// 第一次调用时vacrel->current_block的值是0xFFFFFFFF，加1，就变成了0。
 
 	/* Have we reached the end of the relation? */
-	if (next_block >= vacrel->rel_pages)
+	if (next_block >= vacrel->rel_pages) /// BlockNumber rel_pages;          /* total number of pages */ 这张表的总的块号。
 	{
+		/// 走到这里，就是把这张表扫描到头了。就返回false。
 		if (BufferIsValid(vacrel->next_unskippable_vmbuffer))
 		{
 			ReleaseBuffer(vacrel->next_unskippable_vmbuffer);
@@ -1107,7 +1112,7 @@ heap_vac_scan_next_block(LVRelState *vacrel, BlockNumber *blkno,
 	/*
 	 * We must be in one of the three following states:
 	 */
-	if (next_block > vacrel->next_unskippable_block ||
+	if (next_block > vacrel->next_unskippable_block || /// BlockNumber next_unskippable_block; /* next unskippable block */
 		vacrel->next_unskippable_block == InvalidBlockNumber)
 	{
 		/*
@@ -1134,7 +1139,7 @@ heap_vac_scan_next_block(LVRelState *vacrel, BlockNumber *blkno,
 		 * pages then skipping makes updating relfrozenxid unsafe, which is a
 		 * real downside.
 		 */
-		if (vacrel->next_unskippable_block - next_block >= SKIP_PAGES_THRESHOLD)
+		if (vacrel->next_unskippable_block - next_block >= SKIP_PAGES_THRESHOLD) /// #define SKIP_PAGES_THRESHOLD    ((BlockNumber) 32)
 		{
 			next_block = vacrel->next_unskippable_block;
 			if (skipsallvis)
@@ -1857,7 +1862,7 @@ lazy_scan_noprune(LVRelState *vacrel,
  * index vacuuming.
  */
 static void
-lazy_vacuum(LVRelState *vacrel)
+lazy_vacuum(LVRelState *vacrel) /// 对表和索引的VACUUM。
 {
 	bool		bypass;
 
@@ -1942,7 +1947,7 @@ lazy_vacuum(LVRelState *vacrel)
 		 */
 		vacrel->do_index_vacuuming = false;
 	}
-	else if (lazy_vacuum_all_indexes(vacrel))
+	else if (lazy_vacuum_all_indexes(vacrel)) /// 先做索引的vacuum，再做heap表的vacuum？
 	{
 		/*
 		 * We successfully completed a round of index vacuuming.  Do related
