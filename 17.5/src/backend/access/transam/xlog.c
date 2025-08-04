@@ -9089,9 +9089,9 @@ do_pg_backup_start(const char *backupidstr, bool fast, List **tablespaces,
  * Utility routine to fetch the session-level status of a backup running.
  */
 SessionBackupState
-get_backup_status(void)
+get_backup_status(void) /// 获取本会话是否处于备份模式的信息。
 {
-	return sessionBackupState;
+	return sessionBackupState; /// 这是一个状态变量，由do_pg_backup_start()设置，在do_pg_backup_stop()中被重置。
 }
 
 /*

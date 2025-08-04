@@ -228,7 +228,7 @@ static const char *const xlogSourceNames[] = {"any", "archive", "pg_wal", "strea
  * worthwhile, since the XLOG is not read by general-purpose sessions.
  */
 static int	readFile = -1;
-static XLogSegNo readSegNo = 0;
+static XLogSegNo readSegNo = 0;  /// typedef uint64 XLogSegNo;
 static uint32 readOff = 0;
 static uint32 readLen = 0;
 static XLogSource readSource = XLOG_FROM_ANY;
