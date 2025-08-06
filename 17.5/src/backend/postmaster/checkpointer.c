@@ -970,7 +970,7 @@ CheckpointerShmemInit(void)
  *		(This affects logging, and in particular enables CheckPointWarning.)
  */
 void
-RequestCheckpoint(int flags)
+RequestCheckpoint(int flags) /// 这个函数是别的进程调用的，请求checkpointer进程执行一个检查点。
 {
 	int			ntries;
 	int			old_failed,
@@ -1052,14 +1052,14 @@ RequestCheckpoint(int flags)
 	 * If requested, wait for completion.  We detect completion according to
 	 * the algorithm given above.
 	 */
-	if (flags & CHECKPOINT_WAIT)
+	if (flags & CHECKPOINT_WAIT) /// 请求者需要等待检查点完成。
 	{
 		int			new_started,
 					new_failed;
 
 		/* Wait for a new checkpoint to start. */
 		ConditionVariablePrepareToSleep(&CheckpointerShmem->start_cv);
-		for (;;)
+		for (;;) /// 无限等待。
 		{
 			SpinLockAcquire(&CheckpointerShmem->ckpt_lck);
 			new_started = CheckpointerShmem->ckpt_started;

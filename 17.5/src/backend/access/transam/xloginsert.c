@@ -17,6 +17,8 @@
  *-------------------------------------------------------------------------
  */
 
+/// 调用模式：先调用XLogBeginInsert，再调用一系列XLogRegister*的参数，最后调用XLogRecordAssemble()
+
 #include "postgres.h"
 
 #ifdef USE_LZ4
@@ -45,7 +47,7 @@
  * backup block image.
  */
 #ifdef USE_LZ4
-#define	LZ4_MAX_BLCKSZ		LZ4_COMPRESSBOUND(BLCKSZ)
+#define	LZ4_MAX_BLCKSZ		LZ4_COMPRESSBOUND(BLCKSZ) /// BLCKSZ是8192字节。不同的压缩算法对8192字节进行压缩后的体积。
 #else
 #define LZ4_MAX_BLCKSZ		0
 #endif
@@ -59,7 +61,7 @@
 #define PGLZ_MAX_BLCKSZ		PGLZ_MAX_OUTPUT(BLCKSZ)
 
 /* Buffer size required to store a compressed version of backup block image */
-#define COMPRESS_BUFSIZE	Max(Max(PGLZ_MAX_BLCKSZ, LZ4_MAX_BLCKSZ), ZSTD_MAX_BLCKSZ)
+#define COMPRESS_BUFSIZE	Max(Max(PGLZ_MAX_BLCKSZ, LZ4_MAX_BLCKSZ), ZSTD_MAX_BLCKSZ) /// 取三种压缩算法压缩后的最大值
 
 /*
  * For each block reference registered with XLogRegisterBuffer, we fill in
@@ -69,10 +71,10 @@ typedef struct
 {
 	bool		in_use;			/* is this slot in use? */
 	uint8		flags;			/* REGBUF_* flags */
-	RelFileLocator rlocator;	/* identifies the relation and block */
-	ForkNumber	forkno;
-	BlockNumber block;
-	Page		page;			/* page content */
+	RelFileLocator rlocator;	/* identifies the relation and block */ /// RelFileLocator是4+4+4=12字节，表示哪个表空间的哪个数据库的哪张表。
+	ForkNumber	forkno; /// 这个也占4字节
+	BlockNumber block;  /// 数据块号，4字节。
+	Page		page;			/* page content */ /// typedef Pointer Page; typedef char *Pointer; 实际上就是一个char*指针。
 	uint32		rdata_len;		/* total length of data in rdata chain */
 	XLogRecData *rdata_head;	/* head of the chain of data registered with
 								 * this block */
@@ -83,7 +85,7 @@ typedef struct
 								 * backup block data in XLogRecordAssemble() */
 
 	/* buffer to store a compressed version of backup block image */
-	char		compressed_page[COMPRESS_BUFSIZE];
+	char		compressed_page[COMPRESS_BUFSIZE]; /// 一个保存全页写数据块的压缩形式。
 } registered_buffer;
 
 static registered_buffer *registered_buffers;
@@ -146,7 +148,7 @@ static bool XLogCompressBackupBlock(char *page, uint16 hole_offset,
  * XLogRegister* functions and XLogInsert().
  */
 void
-XLogBeginInsert(void)
+XLogBeginInsert(void) /// 这是调用的第一个函数。
 {
 	Assert(max_registered_block_id == 0);
 	Assert(mainrdata_last == (XLogRecData *) &mainrdata_head);
@@ -159,7 +161,7 @@ XLogBeginInsert(void)
 	if (begininsert_called)
 		elog(ERROR, "XLogBeginInsert was already called");
 
-	begininsert_called = true;
+	begininsert_called = true; /// 供后面的API检查本函数是否被调用了。
 }
 
 /*
@@ -477,7 +479,7 @@ XLogInsert(RmgrId rmid, uint8 info)
 
 	/* XLogBeginInsert() must have been called. */
 	if (!begininsert_called)
-		elog(ERROR, "XLogBeginInsert was not called");
+		elog(ERROR, "XLogBeginInsert was not called"); /// 检查XLogBeginInsert是否被执行了。
 
 	/*
 	 * The caller can set rmgr bits, XLR_SPECIAL_REL_UPDATE and
@@ -515,7 +517,7 @@ XLogInsert(RmgrId rmid, uint8 info)
 		 * we don't yet have an insertion lock, these could change under us,
 		 * but XLogInsertRecord will recheck them once it has a lock.
 		 */
-		GetFullPageWriteInfo(&RedoRecPtr, &doPageWrites);
+		GetFullPageWriteInfo(&RedoRecPtr, &doPageWrites); /// 获取REDO点和是否要做全页写。
 
 		rdt = XLogRecordAssemble(rmid, info, RedoRecPtr, doPageWrites,
 								 &fpw_lsn, &num_fpi, &topxid_included);

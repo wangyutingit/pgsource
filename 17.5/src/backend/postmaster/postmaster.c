@@ -1726,7 +1726,7 @@ ServerLoop(void)
 			(AutoVacuumingActive() || start_autovac_launcher) &&
 			pmState == PM_RUN)
 		{
-			AutoVacPID = StartChildProcess(B_AUTOVAC_LAUNCHER);
+			AutoVacPID = StartChildProcess(B_AUTOVAC_LAUNCHER); /// 启动autovacuum launcher进程。
 			if (AutoVacPID != 0)
 				start_autovac_launcher = false; /* signal processed */
 		}
@@ -1960,7 +1960,7 @@ canAcceptConnections(int backend_type)
  * the global variable yet when this is called.
  */
 void
-ClosePostmasterPorts(bool am_syslogger)
+ClosePostmasterPorts(bool am_syslogger) /// am_syslogger表明该子进程是否是syslogger，这个子进程需要特殊处理一下。
 {
 	/* Release resources held by the postmaster's WaitEventSet. */
 	if (pm_wait_set)
@@ -2013,7 +2013,7 @@ ClosePostmasterPorts(bool am_syslogger)
 	if (!am_syslogger)
 	{
 #ifndef WIN32
-		if (syslogPipe[0] >= 0)
+		if (syslogPipe[0] >= 0) /// 管道这块要处理一下。
 			close(syslogPipe[0]);
 		syslogPipe[0] = -1;
 #else
@@ -2037,7 +2037,7 @@ ClosePostmasterPorts(bool am_syslogger)
  * Called early in the postmaster and every backend.
  */
 void
-InitProcessGlobals(void) /// 记录启动时间，产生随机数
+InitProcessGlobals(void) /// 记录启动时间，产生随机数， 比较简单的初始化工作。
 {
 	/// 调用gettimeofday()获得时间信息
 	MyStartTimestamp = GetCurrentTimestamp(); /// backend/utils/init/globals.c:TimestampTz MyStartTimestamp;
@@ -3812,6 +3812,10 @@ process_pm_pmsignal(void)
 		start_autovac_launcher = true;
 	}
 
+
+	/// autovacuum launcher进程决定要启动一个autovacuum worker进程时，会向postmaster
+	/// 主进程发送PMSIGNAL_START_AUTOVAC_WORKER信号，通过kill(postmasterPID, SIGUSR1)
+	/// 来实现的。
 	if (CheckPostmasterSignal(PMSIGNAL_START_AUTOVAC_WORKER) &&
 		Shutdown <= SmartShutdown && pmState < PM_STOP_BACKENDS)
 	{

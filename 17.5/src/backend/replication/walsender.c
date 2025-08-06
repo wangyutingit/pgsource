@@ -2009,7 +2009,7 @@ exec_replication_command(const char *cmd_string)
 	 * generate WAL while the shutdown checkpoint is being written.  To be
 	 * safe, we just prohibit all new commands.
 	 */
-	if (MyWalSnd->state == WALSNDSTATE_STOPPING)
+	if (MyWalSnd->state == WALSNDSTATE_STOPPING) /// 如果处于WALSNDSTATE_STOPPING状态，就报错退出本进程。
 		ereport(ERROR,
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
 				 errmsg("cannot execute new commands while WAL sender is in stopping mode")));
@@ -3587,7 +3587,7 @@ WalSndRqstFileReload(void)
  * Handle PROCSIG_WALSND_INIT_STOPPING signal.
  */
 void
-HandleWalSndInitStopping(void)
+HandleWalSndInitStopping(void) /// 通知walsender本进程关闭，分两种情况：是否处于复制的活动状态，如果是，就仅仅设置一个标志，让它在主循环中优雅地退出。
 {
 	Assert(am_walsender);
 
@@ -3785,10 +3785,10 @@ WalSndInitStopping(void)
 		pid = walsnd->pid;
 		SpinLockRelease(&walsnd->mutex);
 
-		if (pid == 0)
+		if (pid == 0) /// 如果本槽的进程号是0，就继续处理下一个槽。
 			continue;
 
-		SendProcSignal(pid, PROCSIG_WALSND_INIT_STOPPING, INVALID_PROC_NUMBER);
+		SendProcSignal(pid, PROCSIG_WALSND_INIT_STOPPING, INVALID_PROC_NUMBER); /// #define INVALID_PROC_NUMBER		(-1)
 	}
 }
 
@@ -3798,26 +3798,26 @@ WalSndInitStopping(void)
  * safely be performed.
  */
 void
-WalSndWaitStopping(void)
+WalSndWaitStopping(void) /// 这个函数返回时，所有的walsender进程都处于正在关闭状态。
 {
-	for (;;)
+	for (;;) /// 无限循环
 	{
 		int			i;
 		bool		all_stopped = true;
 
-		for (i = 0; i < max_wal_senders; i++)
+		for (i = 0; i < max_wal_senders; i++) /// 扫描walsender的共享内存数组。
 		{
 			WalSnd	   *walsnd = &WalSndCtl->walsnds[i];
 
 			SpinLockAcquire(&walsnd->mutex);
 
-			if (walsnd->pid == 0)
+			if (walsnd->pid == 0) /// 这个槽是空的，继续处理下一个槽。
 			{
 				SpinLockRelease(&walsnd->mutex);
 				continue;
 			}
 
-			if (walsnd->state != WALSNDSTATE_STOPPING)
+			if (walsnd->state != WALSNDSTATE_STOPPING) /// 扫描到一个槽，里面有进程，且状态不是正在处于WALSNDSTATE_STOPPING状态，就过10毫秒后再扫描。
 			{
 				all_stopped = false;
 				SpinLockRelease(&walsnd->mutex);
@@ -3836,7 +3836,7 @@ WalSndWaitStopping(void)
 
 /* Set state for current walsender (only called in walsender) */
 void
-WalSndSetState(WalSndState state)
+WalSndSetState(WalSndState state) /// 设置共享内存中的本进程的状态。
 {
 	WalSnd	   *walsnd = MyWalSnd;
 
@@ -3855,7 +3855,7 @@ WalSndSetState(WalSndState state)
  * in system views, and should *not* be translated.
  */
 static const char *
-WalSndGetStateString(WalSndState state)
+WalSndGetStateString(WalSndState state) /// 就是根据枚举类型返回字符串。
 {
 	switch (state)
 	{

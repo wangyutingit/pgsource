@@ -474,7 +474,10 @@ ExecVacuum(ParseState *pstate, VacuumStmt *vacstmt, bool isTopLevel) /// 执行v
  * It is the caller's responsibility that all parameters are allocated in a
  * memory context that will not disappear at transaction commit.
  */
-void
+/// 在autovacuum.c中的autovacuum_do_vac_analyze()函数中调用本函数：
+/// vacuum(rel_list, &tab->at_params, bstrategy, vac_context, true);
+/// 这个函数对一捆表进行操作。
+void 
 vacuum(List *relations, VacuumParams *params, BufferAccessStrategy bstrategy,
 	   MemoryContext vac_context, bool isTopLevel)
 {
@@ -509,7 +512,7 @@ vacuum(List *relations, VacuumParams *params, BufferAccessStrategy bstrategy,
 	 * FULL or ANALYZE calls a hostile index expression that itself calls
 	 * ANALYZE.
 	 */
-	if (in_vacuum)
+	if (in_vacuum) /// 不允许VACUUM和ANALYZE命令递归调用。
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				 errmsg("%s cannot be executed from VACUUM or ANALYZE",
@@ -564,6 +567,7 @@ vacuum(List *relations, VacuumParams *params, BufferAccessStrategy bstrategy,
 	else
 	{
 		Assert(params->options & VACOPT_ANALYZE);
+		/// 本函数可能被一个autovacuum worker进程执行
 		if (AmAutoVacuumWorkerProcess()) /// #define AmAutoVacuumWorkerProcess()	(MyBackendType == B_AUTOVAC_WORKER)
 			use_own_xacts = true;
 		else if (in_outer_xact)
@@ -621,9 +625,10 @@ vacuum(List *relations, VacuumParams *params, BufferAccessStrategy bstrategy,
 			{
 				if (!vacuum_rel(vrel->oid, vrel->relation, params, bstrategy))
 					continue;
+				/// vacuum_rel是对一张表进行VACUUM操作，如果执行成功了，还要对其进行ANALYZE操作。
 			}
 
-			if (params->options & VACOPT_ANALYZE)
+			if (params->options & VACOPT_ANALYZE) /// 先VACUUM再ANALYZE。
 			{
 				/*
 				 * If using separate xacts, start one for analyze. Otherwise,
@@ -635,7 +640,7 @@ vacuum(List *relations, VacuumParams *params, BufferAccessStrategy bstrategy,
 					/* functions in indexes may want a snapshot set */
 					PushActiveSnapshot(GetTransactionSnapshot());
 				}
-
+				/// 对一张表进行ANALYZE。
 				analyze_rel(vrel->oid, vrel->relation, params,
 							vrel->va_cols, in_outer_xact, bstrategy);
 
@@ -1556,7 +1561,7 @@ vac_update_relstats(Relation relation,
 
 /*
  *	vac_update_datfrozenxid() -- update pg_database.datfrozenxid for our DB
- *
+ *  /// 更新系统表pg_database中的datfrozenxid这一列的值。
  *		Update pg_database's datfrozenxid entry for our database to be the
  *		minimum of the pg_class.relfrozenxid values.
  *

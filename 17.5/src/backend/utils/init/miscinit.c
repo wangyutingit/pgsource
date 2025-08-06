@@ -95,6 +95,7 @@ bool		IgnoreSystemIndexes = false;
 void
 InitPostmasterChild(void)
 {
+	/// Is Under的意思就是在某某下面。IsUnderPostmaster表示本进程是子进程。
 	IsUnderPostmaster = true;	/* we are a postmaster subprocess now */
 
 	/*
@@ -113,7 +114,7 @@ InitPostmasterChild(void)
 	 */
 	(void) set_stack_base();
 
-	InitProcessGlobals();
+	InitProcessGlobals(); /// 比较简单的初始化工作。
 
 	/*
 	 * make sure stderr is in binary mode before anything can possibly be

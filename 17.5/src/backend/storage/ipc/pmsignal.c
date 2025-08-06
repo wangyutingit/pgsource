@@ -178,10 +178,10 @@ PMSignalShmemInit(void)
  * SendPostmasterSignal - signal the postmaster from a child process
  */
 void
-SendPostmasterSignal(PMSignalReason reason)
+SendPostmasterSignal(PMSignalReason reason) /// postmaster的子进程向postmaster主进程发送SIGUSR1信号。
 {
 	/* If called in a standalone backend, do nothing */
-	if (!IsUnderPostmaster)
+	if (!IsUnderPostmaster) /// 变量IsUnderPostmaster=true则表明本进程是postmaster的亲儿子。
 		return;
 	/* Atomically set the proper flag */
 	PMSignalState->PMSignalFlags[reason] = true;

@@ -4,6 +4,7 @@
  *	  Functions for launching backends and other postmaster child
  *	  processes.
  *
+ * /// 这段话描述了在Unix/Linux平台下，子进程自动继承父进程的各种资源的情况。
  * On Unix systems, a new child process is launched with fork().  It inherits
  * all the global variables and data structures that had been initialized in
  * the postmaster.  After forking, the child process closes the file
@@ -12,6 +13,7 @@
  * that, it calls the right Main function depending on the kind of child
  * process.
  *
+ * EXEC_BACKEND模式仅仅适合Windows平台，因为我们都是在Linux平台下调试和分析代码，所以可以忽略它。
  * In EXEC_BACKEND mode, which is used on Windows but can be enabled on other
  * platforms for testing, the child process is launched by fork() + exec() (or
  * CreateProcess() on Windows).  It does not inherit the state from the
@@ -94,7 +96,7 @@ typedef int InheritableSocket;
  */
 typedef struct
 {
-	char		DataDir[MAXPGPATH];
+	char		DataDir[MAXPGPATH]; /// #define MAXPGPATH		1024
 	int32		MyCancelKey;
 	int			MyPMChildSlot;
 #ifndef WIN32
@@ -177,14 +179,15 @@ static pid_t internal_forkexec(const char *child_kind, char *startup_data, size_
 typedef struct
 {
 	const char *name;
-	void		(*main_fn) (char *startup_data, size_t startup_data_len) pg_attribute_noreturn();
-	bool		shmem_attach;
+	void		(*main_fn) (char *startup_data, size_t startup_data_len) pg_attribute_noreturn(); /// 每个入口函数只有两个参数，数据和长度。
+	bool		shmem_attach; /// 需不需要贴在共享内存上，需不需访问共享内存。
 } child_process_kind;
 
+/// 通过查表法去执行不同的后台子进程。
 child_process_kind child_process_kinds[] = {
 	[B_INVALID] = {"invalid", NULL, false},
 
-	[B_BACKEND] = {"backend", BackendMain, true},
+	[B_BACKEND] = {"backend", BackendMain, true}, /// 当用户连接上来后，产生的postgres进程走这条线。
 	[B_AUTOVAC_LAUNCHER] = {"autovacuum launcher", AutoVacLauncherMain, true},
 	[B_AUTOVAC_WORKER] = {"autovacuum worker", AutoVacWorkerMain, true},
 	[B_BG_WORKER] = {"bgworker", BackgroundWorkerMain, true},
@@ -207,10 +210,10 @@ child_process_kind child_process_kinds[] = {
 	[B_WAL_SUMMARIZER] = {"wal_summarizer", WalSummarizerMain, true},
 	[B_WAL_WRITER] = {"wal_writer", WalWriterMain, true},
 
-	[B_LOGGER] = {"syslogger", SysLoggerMain, false},
+	[B_LOGGER] = {"syslogger", SysLoggerMain, false}, /// syslogger进程不需要访问共享内存!!!
 };
 
-const char *
+const char * /// 根据子进程的类型，返回其名称，就是一个简单的直接取数组下标的操作，非常迅速。
 PostmasterChildName(BackendType child_type)
 {
 	return child_process_kinds[child_type].name;
@@ -229,7 +232,7 @@ PostmasterChildName(BackendType child_type)
  */
 pid_t
 postmaster_child_launch(BackendType child_type,
-						char *startup_data, size_t startup_data_len,
+						char *startup_data, size_t startup_data_len, /// 这两个数据是传入到子进程的入口函数中的。
 						ClientSocket *client_sock)
 {
 	pid_t		pid;
@@ -244,17 +247,20 @@ postmaster_child_launch(BackendType child_type,
 	pid = fork_process(); /// 核心就是调用 fork()来创建子进程
 	if (pid == 0)				/* child */
 	{
+		/// 现在进入到子进程中了。
 		/* Close the postmaster's sockets */
-		ClosePostmasterPorts(child_type == B_LOGGER);
+		ClosePostmasterPorts(child_type == B_LOGGER); 
+		/// 只有主进程postmaster在侦听来自客户端的连接请求，所以别的进程需要关闭继承自父进程的socket。
+		/// syslogger进程有一点点特殊，它使用的pipe管道要进行特殊处理，所以这里传入一个参数。
 
 		/* Detangle from postmaster */
-		InitPostmasterChild();
+		InitPostmasterChild(); /// 做一些子进程通用的初始化工作。在该函数中IsUnderPostmaster = true，表明子进程的身份。
 
 		/* Detach shared memory if not needed. */
 		if (!child_process_kinds[child_type].shmem_attach)
 		{
 			dsm_detach_all();
-			PGSharedMemoryDetach();
+			PGSharedMemoryDetach(); /// 调用shmdt()和munmap()两个系统调用，放弃共享内存的使用。
 		}
 
 		/*

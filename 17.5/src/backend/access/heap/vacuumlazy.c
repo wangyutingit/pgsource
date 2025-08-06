@@ -342,7 +342,7 @@ heap_vacuum_rel(Relation rel, VacuumParams *params,
 	 * of each rel.  It's convenient for code in lazy_scan_heap to always use
 	 * these temp copies.
 	 */
-	vacrel = (LVRelState *) palloc0(sizeof(LVRelState));
+	vacrel = (LVRelState *) palloc0(sizeof(LVRelState)); /// 这是一个总控的结构
 	vacrel->dbname = get_database_name(MyDatabaseId);
 	vacrel->relnamespace = get_namespace_name(RelationGetNamespace(rel));
 	vacrel->relname = pstrdup(RelationGetRelationName(rel));
@@ -896,7 +896,7 @@ lazy_scan_heap(LVRelState *vacrel)
 
 			/* Perform a round of index and heap vacuuming */
 			vacrel->consider_bypass_optimization = false;
-			lazy_vacuum(vacrel);
+			lazy_vacuum(vacrel); /// 真正干活的函数
 
 			/*
 			 * Vacuum the Free Space Map to make newly-freed space visible on
@@ -2107,7 +2107,7 @@ static void
 lazy_vacuum_heap_rel(LVRelState *vacrel)
 {
 	BlockNumber vacuumed_pages = 0;
-	Buffer		vmbuffer = InvalidBuffer;
+	Buffer		vmbuffer = InvalidBuffer; /// #define InvalidBuffer	0 ｜ typedef int Buffer;
 	LVSavedErrInfo saved_err_info;
 	TidStoreIter *iter;
 	TidStoreIterResult *iter_result;
@@ -2196,16 +2196,18 @@ lazy_vacuum_heap_page(LVRelState *vacrel, BlockNumber blkno, Buffer buffer,
 					  OffsetNumber *deadoffsets, int num_offsets,
 					  Buffer vmbuffer)
 {
-	Page		page = BufferGetPage(buffer);
-	OffsetNumber unused[MaxHeapTuplesPerPage];
+	/// buffer是一个整型，BufferGetPage就是获取指定编号的Page的真实的内存指针。
+	Page		page = BufferGetPage(buffer); /// typedef Pointer Page; typedef char *Pointer;
+	/// typedef uint16 OffsetNumber;
+	OffsetNumber unused[MaxHeapTuplesPerPage]; /// MaxHeapTuplesPerPage是一个数据块中的最大记录数，其值为291。
 	int			nunused = 0;
-	TransactionId visibility_cutoff_xid;
+	TransactionId visibility_cutoff_xid; /// typedef uint32 TransactionId;
 	bool		all_frozen;
 	LVSavedErrInfo saved_err_info;
 
 	Assert(vacrel->do_index_vacuuming);
 
-	pgstat_progress_update_param(PROGRESS_VACUUM_HEAP_BLKS_VACUUMED, blkno);
+	pgstat_progress_update_param(PROGRESS_VACUUM_HEAP_BLKS_VACUUMED, blkno); /// typedef uint32 BlockNumber;
 
 	/* Update error traceback information */
 	update_vacuum_error_info(vacrel, &saved_err_info,
@@ -2219,11 +2221,11 @@ lazy_vacuum_heap_page(LVRelState *vacrel, BlockNumber blkno, Buffer buffer,
 		ItemId		itemid;
 		OffsetNumber toff = deadoffsets[i];
 
-		itemid = PageGetItemId(page, toff);
+		itemid = PageGetItemId(page, toff); /// toff就是一个整型值，表示指针数组的下标。
 
 		Assert(ItemIdIsDead(itemid) && !ItemIdHasStorage(itemid));
-		ItemIdSetUnused(itemid);
-		unused[nunused++] = toff;
+		ItemIdSetUnused(itemid); /// 把flag设置为LP_UNUSED，偏移量和长度都设置为0.
+		unused[nunused++] = toff; /// 往这个数组中不断填充记录。
 	}
 
 	Assert(nunused > 0);
@@ -2234,7 +2236,7 @@ lazy_vacuum_heap_page(LVRelState *vacrel, BlockNumber blkno, Buffer buffer,
 	/*
 	 * Mark buffer dirty before we write WAL.
 	 */
-	MarkBufferDirty(buffer);
+	MarkBufferDirty(buffer); /// 把编号为buffer的数据页设置为脏页。
 
 	/* XLOG stuff */
 	if (RelationNeedsWAL(vacrel->rel))
@@ -2267,7 +2269,7 @@ lazy_vacuum_heap_page(LVRelState *vacrel, BlockNumber blkno, Buffer buffer,
 	if (heap_page_is_all_visible(vacrel, buffer, &visibility_cutoff_xid,
 								 &all_frozen))
 	{
-		uint8		flags = VISIBILITYMAP_ALL_VISIBLE;
+		uint8		flags = VISIBILITYMAP_ALL_VISIBLE; /// #define VISIBILITYMAP_ALL_VISIBLE	0x01
 
 		if (all_frozen)
 		{
@@ -2529,9 +2531,10 @@ lazy_cleanup_one_index(Relation indrel, IndexBulkDeleteResult *istat,
 static bool
 should_attempt_truncation(LVRelState *vacrel)
 {
-	BlockNumber possibly_freeable;
+	BlockNumber possibly_freeable; /// typedef uint32 BlockNumber;
 
-	if (!vacrel->do_rel_truncate || VacuumFailsafeActive)
+	/// bool            do_rel_truncate; 表示是不是要truncate表
+	if (!vacrel->do_rel_truncate || VacuumFailsafeActive) 
 		return false;
 
 	possibly_freeable = vacrel->rel_pages - vacrel->nonempty_pages;
@@ -2880,6 +2883,7 @@ dead_items_alloc(LVRelState *vacrel, int nworkers)
 	dead_items_info->num_items = 0;
 	vacrel->dead_items_info = dead_items_info;
 
+	/// TidStore   *dead_items;         /* TIDs whose index tuples we'll delete */ dead_items就是一个巨大的数组。
 	vacrel->dead_items = TidStoreCreateLocal(dead_items_info->max_bytes, true); /// 根据计算的字节大小，内存池，供将来的dead_item使用。
 }
 
@@ -3112,7 +3116,7 @@ vacuum_error_callback(void *arg)
 	switch (errinfo->phase)
 	{
 		case VACUUM_ERRCB_PHASE_SCAN_HEAP:
-			if (BlockNumberIsValid(errinfo->blkno))
+			if (BlockNumberIsValid(errinfo->blkno)) /// blockNumber != InvalidBlockNumber，即errinfo->blkno非零
 			{
 				if (OffsetNumberIsValid(errinfo->offnum))
 					errcontext("while scanning block %u offset %u of relation \"%s.%s\"",
@@ -3174,12 +3178,12 @@ update_vacuum_error_info(LVRelState *vacrel, LVSavedErrInfo *saved_vacrel,
 {
 	if (saved_vacrel)
 	{
-		saved_vacrel->offnum = vacrel->offnum;
+		saved_vacrel->offnum = vacrel->offnum; /// 保存这三个成员变量。
 		saved_vacrel->blkno = vacrel->blkno;
 		saved_vacrel->phase = vacrel->phase;
 	}
 
-	vacrel->blkno = blkno;
+	vacrel->blkno = blkno;  /// 然后更新
 	vacrel->offnum = offnum;
 	vacrel->phase = phase;
 }
@@ -3189,7 +3193,7 @@ update_vacuum_error_info(LVRelState *vacrel, LVSavedErrInfo *saved_vacrel,
  */
 static void
 restore_vacuum_error_info(LVRelState *vacrel,
-						  const LVSavedErrInfo *saved_vacrel)
+						  const LVSavedErrInfo *saved_vacrel) /// 就是把saved_vacrel指针指向的三个成员变量的值赋给vacrel指针指向的三个成员变量。
 {
 	vacrel->blkno = saved_vacrel->blkno;
 	vacrel->offnum = saved_vacrel->offnum;

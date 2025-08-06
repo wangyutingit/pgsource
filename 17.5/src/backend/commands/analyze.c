@@ -107,7 +107,7 @@ static Datum ind_fetch_func(VacAttrStatsP stats, int rownum, bool *isNull);
  * the name therein for reporting any failure to open/lock the rel; do not
  * use it once we've successfully opened the rel, since it might be stale.
  */
-void
+void /// 对一张表进行ANALYZE
 analyze_rel(Oid relid, RangeVar *relation,
 			VacuumParams *params, List *va_cols, bool in_outer_xact,
 			BufferAccessStrategy bstrategy)

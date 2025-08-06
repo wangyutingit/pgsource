@@ -247,7 +247,7 @@ CleanupProcSignalState(int status, Datum arg)
  *		Send a signal to a Postgres process
  *
  * Providing procNumber is optional, but it will speed up the operation.
- *
+ * /// 如果提供了下标，就不需要扫描数组了。
  * On success (a signal was sent), zero is returned.
  * On error, -1 is returned, and errno is set (typically to ESRCH or EPERM).
  *
@@ -258,7 +258,7 @@ SendProcSignal(pid_t pid, ProcSignalReason reason, ProcNumber procNumber)
 {
 	volatile ProcSignalSlot *slot;
 
-	if (procNumber != INVALID_PROC_NUMBER)
+	if (procNumber != INVALID_PROC_NUMBER) /// 本条件表明提供了procNumber号，就是一个数组的下标。 #define INVALID_PROC_NUMBER		(-1)
 	{
 		slot = &ProcSignal->psh_slot[procNumber];
 
@@ -275,7 +275,7 @@ SendProcSignal(pid_t pid, ProcSignalReason reason, ProcNumber procNumber)
 			/* Atomically set the proper flag */
 			slot->pss_signalFlags[reason] = true;
 			/* Send signal */
-			return kill(pid, SIGUSR1);
+			return kill(pid, SIGUSR1); /// 如果进程号pid对得上，就给该进程发送SIGUSR1信号。
 		}
 	}
 	else
@@ -289,7 +289,7 @@ SendProcSignal(pid_t pid, ProcSignalReason reason, ProcNumber procNumber)
 		 */
 		int			i;
 
-		for (i = NumProcSignalSlots - 1; i >= 0; i--)
+		for (i = NumProcSignalSlots - 1; i >= 0; i--) /// 从后往前扫描数组，速度更快，上面的注释很清楚。
 		{
 			slot = &ProcSignal->psh_slot[i];
 
@@ -305,7 +305,7 @@ SendProcSignal(pid_t pid, ProcSignalReason reason, ProcNumber procNumber)
 		}
 	}
 
-	errno = ESRCH;
+	errno = ESRCH; /// 没有找到指定的进程，就返回-1.
 	return -1;
 }
 

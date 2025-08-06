@@ -626,7 +626,7 @@ RelationCloseSmgr(Relation relation)
  * RelFileLocator" in src/backend/access/transam/README.
  */
 #define RelationNeedsWAL(relation)										\
-	(RelationIsPermanent(relation) && (XLogIsNeeded() ||				\
+	(RelationIsPermanent(relation) && (XLogIsNeeded() ||				\  /// #define XLogIsNeeded() (wal_level >= WAL_LEVEL_REPLICA)
 	  (relation->rd_createSubid == InvalidSubTransactionId &&			\
 	   relation->rd_firstRelfilelocatorSubid == InvalidSubTransactionId)))
 

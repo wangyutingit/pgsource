@@ -211,7 +211,7 @@ typedef PageHeaderData *PageHeader;
 /*
  * line pointer(s) do not count as part of header
  */
-#define SizeOfPageHeaderData (offsetof(PageHeaderData, pd_linp))
+#define SizeOfPageHeaderData (offsetof(PageHeaderData, pd_linp)) /// SizeOfPageHeaderData = 24
 
 /*
  * PageIsEmpty
@@ -367,7 +367,7 @@ PageGetItem(Page page, ItemId itemId)
  *		return zero to ensure sane behavior.
  */
 static inline OffsetNumber
-PageGetMaxOffsetNumber(Page page)
+PageGetMaxOffsetNumber(Page page) /// 这个逻辑很简单，就是pg_lower扣除24字节的头部，再除于4，即为本数据页上的记录条数。
 {
 	PageHeader	pageheader = (PageHeader) page;
 
@@ -381,7 +381,7 @@ PageGetMaxOffsetNumber(Page page)
  * Additional functions for access to page headers.
  */
 static inline XLogRecPtr
-PageGetLSN(Page page)
+PageGetLSN(Page page) /// Page的本质就是char*，这个函数就是获取page指针指向的8192字节中的开始8个字节。
 {
 	return PageXLogRecPtrGet(((PageHeader) page)->pd_lsn);
 }

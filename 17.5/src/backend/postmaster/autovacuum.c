@@ -12,6 +12,7 @@
  * vacuuming; they connect to a database as determined in the launcher, and
  * once connected they examine the catalogs to select the tables to vacuum.
  *
+ * /// 这一段描述了PG是如何启动进程的：除了主进程postmaster以外，别的进程只能请求postmaster派生出子进程。
  * The autovacuum launcher cannot start the worker processes by itself,
  * because doing so would cause robustness issues (namely, failure to shut
  * them down on exceptional conditions, and also, since the launcher is
@@ -148,7 +149,7 @@ static double av_storage_param_cost_delay = -1;
 static int	av_storage_param_cost_limit = -1;
 
 /* Flags set by signal handlers */
-static volatile sig_atomic_t got_SIGUSR2 = false;
+static volatile sig_atomic_t got_SIGUSR2 = false; /// worker干完活后向launcher发送SIGUSR2信号。
 
 /* Comparison points for determining whether freeze_max_age is exceeded */
 static TransactionId recentXid;
@@ -195,7 +196,7 @@ typedef struct av_relation
 /* struct to keep track of tables to vacuum and/or analyze, after rechecking */
 typedef struct autovac_table
 {
-	Oid			at_relid;
+	Oid			at_relid; /// 被vacuum的表的OID。
 	VacuumParams at_params;
 	double		at_storage_param_vac_cost_delay;
 	int			at_storage_param_vac_cost_limit;
@@ -292,11 +293,11 @@ typedef struct
 	dlist_head	av_freeWorkers;
 	dlist_head	av_runningWorkers;
 	WorkerInfo	av_startingWorker;
-	AutoVacuumWorkItem av_workItems[NUM_WORKITEMS];
+	AutoVacuumWorkItem av_workItems[NUM_WORKITEMS]; /// #define NUM_WORKITEMS	256
 	pg_atomic_uint32 av_nworkersForBalance;
 } AutoVacuumShmemStruct;
 
-static AutoVacuumShmemStruct *AutoVacuumShmem;
+static AutoVacuumShmemStruct *AutoVacuumShmem; /// 指向共享内存的指针
 
 /*
  * the database list (of avl_dbase elements) in the launcher, and the context
@@ -309,7 +310,7 @@ static MemoryContext DatabaseListCxt = NULL;
 static WorkerInfo MyWorkerInfo = NULL;
 
 /* PID of launcher, valid only in worker while shutting down */
-int			AutovacuumLauncherPid = 0;
+int			AutovacuumLauncherPid = 0; /// 记录autovacuum launcher进程的进程号PID。
 
 static Oid	do_start_worker(void);
 static void HandleAutoVacLauncherInterrupts(void);
@@ -357,21 +358,21 @@ static void avl_sigusr2_handler(SIGNAL_ARGS);
 /*
  * Main entry point for the autovacuum launcher process.
  */
-void
-AutoVacLauncherMain(char *startup_data, size_t startup_data_len)
+void  /// 仅仅在这里使用了一次： postmaster/launch_backend.c:	[B_AUTOVAC_LAUNCHER] = {"autovacuum launcher", AutoVacLauncherMain, true},
+AutoVacLauncherMain(char *startup_data, size_t startup_data_len) /// autovacuum launcher进程的入口函数。
 {
 	sigjmp_buf	local_sigjmp_buf;
 
-	Assert(startup_data_len == 0);
+	Assert(startup_data_len == 0); /// 这个入口函数不需要传入参数。
 
 	/* Release postmaster's working memory context */
-	if (PostmasterContext)
+	if (PostmasterContext) /// 我们不需要这个内存池。
 	{
 		MemoryContextDelete(PostmasterContext);
 		PostmasterContext = NULL;
 	}
 
-	MyBackendType = B_AUTOVAC_LAUNCHER;
+	MyBackendType = B_AUTOVAC_LAUNCHER; /// 记录本进程的类型。
 	init_ps_display(NULL);
 
 	ereport(DEBUG1,
@@ -420,7 +421,7 @@ AutoVacLauncherMain(char *startup_data, size_t startup_data_len)
 	 */
 	AutovacMemCxt = AllocSetContextCreate(TopMemoryContext,
 										  "Autovacuum Launcher",
-										  ALLOCSET_DEFAULT_SIZES);
+										  ALLOCSET_DEFAULT_SIZES); /// 创建一个专属的内存池。
 	MemoryContextSwitchTo(AutovacMemCxt);
 
 	/*
@@ -513,7 +514,7 @@ AutoVacLauncherMain(char *startup_data, size_t startup_data_len)
 	 * in postgresql.conf.  We don't really want such a dangerous option being
 	 * applied non-interactively.
 	 */
-	SetConfigOption("zero_damaged_pages", "false", PGC_SUSET, PGC_S_OVERRIDE);
+	SetConfigOption("zero_damaged_pages", "false", PGC_SUSET, PGC_S_OVERRIDE); /// 参数zero_damaged_pages???
 
 	/*
 	 * Force settable timeouts off to avoid letting these settings prevent
@@ -530,6 +531,7 @@ AutoVacLauncherMain(char *startup_data, size_t startup_data_len)
 	 * to pay the overhead of serializable mode, nor add any risk of causing
 	 * deadlocks or delaying other transactions.
 	 */
+	/// 把参数default_transaction_isolation设置为"read commited"，避免带来额外开销。
 	SetConfigOption("default_transaction_isolation", "read committed",
 					PGC_SUSET, PGC_S_OVERRIDE);
 
@@ -543,14 +545,14 @@ AutoVacLauncherMain(char *startup_data, size_t startup_data_len)
 	 * In emergency mode, just start a worker (unless shutdown was requested)
 	 * and go away.
 	 */
-	if (!AutoVacuumingActive())
+	if (!AutoVacuumingActive()) /// 需要分析什么是紧急时刻。
 	{
 		if (!ShutdownRequestPending)
 			do_start_worker();
 		proc_exit(0);			/* done */
 	}
 
-	AutoVacuumShmem->av_launcherpid = MyProcPid;
+	AutoVacuumShmem->av_launcherpid = MyProcPid; /// 记录一下本进程的进程号。
 
 	/*
 	 * Create the initial database list.  The invariant we want this list to
@@ -562,7 +564,7 @@ AutoVacLauncherMain(char *startup_data, size_t startup_data_len)
 	rebuild_database_list(InvalidOid);
 
 	/* loop until shutdown request */
-	while (!ShutdownRequestPending)
+	while (!ShutdownRequestPending) /// 一直循环，直到整个数据库实例都被关闭。
 	{
 		struct timeval nap;
 		TimestampTz current_time = 0;
@@ -575,6 +577,7 @@ AutoVacLauncherMain(char *startup_data, size_t startup_data_len)
 		 * wakening conditions.
 		 */
 
+		/// 如果你设置了autovacuum_naptime，nap返回的就是你设置的值，且最长不超过300秒。
 		launcher_determine_sleep(!dlist_is_empty(&AutoVacuumShmem->av_freeWorkers),
 								 false, &nap);
 
@@ -582,6 +585,7 @@ AutoVacLauncherMain(char *startup_data, size_t startup_data_len)
 		 * Wait until naptime expires or we get some type of signal (all the
 		 * signal handlers will wake us by calling SetLatch).
 		 */
+		/// 这个睡眠由nap的值决定，或者被别的进程用信号打断。
 		(void) WaitLatch(MyLatch,
 						 WL_LATCH_SET | WL_TIMEOUT | WL_EXIT_ON_PM_DEATH,
 						 (nap.tv_sec * 1000L) + (nap.tv_usec / 1000L),
@@ -589,12 +593,12 @@ AutoVacLauncherMain(char *startup_data, size_t startup_data_len)
 
 		ResetLatch(MyLatch);
 
-		HandleAutoVacLauncherInterrupts();
+		HandleAutoVacLauncherInterrupts(); /// 现在我苏醒了，就要检查有没有别的请求。
 
 		/*
 		 * a worker finished, or postmaster signaled failure to start a worker
 		 */
-		if (got_SIGUSR2)
+		if (got_SIGUSR2) /// 一个autovacuum worker进程完成工作后，会发SIGUSR2给我。
 		{
 			got_SIGUSR2 = false;
 
@@ -636,6 +640,7 @@ AutoVacLauncherMain(char *startup_data, size_t startup_data_len)
 		current_time = GetCurrentTimestamp();
 		LWLockAcquire(AutovacuumLock, LW_SHARED);
 
+		/// can_launch决定是否需要启动一个worker进程。
 		can_launch = !dlist_is_empty(&AutoVacuumShmem->av_freeWorkers);
 
 		if (AutoVacuumShmem->av_startingWorker != NULL)
@@ -692,7 +697,7 @@ AutoVacLauncherMain(char *startup_data, size_t startup_data_len)
 		LWLockRelease(AutovacuumLock);	/* either shared or exclusive */
 
 		/* if we can't do anything, just go back to sleep */
-		if (!can_launch)
+		if (!can_launch) /// 如果不符合启动worker进程的条件，则继续睡觉。
 			continue;
 
 		/* We're OK to start a new worker */
@@ -709,7 +714,7 @@ AutoVacLauncherMain(char *startup_data, size_t startup_data_len)
 			 */
 			launch_worker(current_time);
 		}
-		else
+		else /// 这种情况是大部分情况。
 		{
 			/*
 			 * because rebuild_database_list constructs a list with most
@@ -726,7 +731,7 @@ AutoVacLauncherMain(char *startup_data, size_t startup_data_len)
 			 */
 			if (TimestampDifferenceExceeds(avdb->adl_next_worker,
 										   current_time, 0))
-				launch_worker(current_time);
+				launch_worker(current_time); /// 启动一个auto vacuum worker进程。
 		}
 	}
 
@@ -789,7 +794,7 @@ AutoVacLauncherShutdown(void)
  * cause a long sleep, which will be interrupted when a worker exits.
  */
 static void
-launcher_determine_sleep(bool canlaunch, bool recursing, struct timeval *nap)
+launcher_determine_sleep(bool canlaunch, bool recursing, struct timeval *nap) /// nap是输出参数。
 {
 	/*
 	 * We sleep until the next scheduled vacuum.  We trust that when the
@@ -799,7 +804,7 @@ launcher_determine_sleep(bool canlaunch, bool recursing, struct timeval *nap)
 	 */
 	if (!canlaunch)
 	{
-		nap->tv_sec = autovacuum_naptime;
+		nap->tv_sec = autovacuum_naptime; /// 根据配置参数autovacuum_naptime设置时间，这是通常情况。
 		nap->tv_usec = 0;
 	}
 	else if (!dlist_is_empty(&DatabaseList))
@@ -855,8 +860,8 @@ launcher_determine_sleep(bool canlaunch, bool recursing, struct timeval *nap)
 	 * infinite sleep in strange cases like the system clock going backwards a
 	 * few years.
 	 */
-	if (nap->tv_sec > MAX_AUTOVAC_SLEEPTIME)
-		nap->tv_sec = MAX_AUTOVAC_SLEEPTIME;
+	if (nap->tv_sec > MAX_AUTOVAC_SLEEPTIME) /// #define MAX_AUTOVAC_SLEEPTIME 300	/* seconds */
+		nap->tv_sec = MAX_AUTOVAC_SLEEPTIME; /// 最长不能超过五分钟。
 }
 
 /*
@@ -1251,7 +1256,7 @@ do_start_worker(void)
 
 		LWLockRelease(AutovacuumLock);
 
-		SendPostmasterSignal(PMSIGNAL_START_AUTOVAC_WORKER);
+		SendPostmasterSignal(PMSIGNAL_START_AUTOVAC_WORKER); /// 向postmaster主进程发送信号SIGUSR1。
 
 		retval = avdb->adw_datid;
 	}
@@ -1355,7 +1360,7 @@ avl_sigusr2_handler(SIGNAL_ARGS)
 /*
  * Main entry point for autovacuum worker processes.
  */
-void
+void  /// autovacuum worker子进程的入口函数。
 AutoVacWorkerMain(char *startup_data, size_t startup_data_len)
 {
 	sigjmp_buf	local_sigjmp_buf;
@@ -1364,13 +1369,13 @@ AutoVacWorkerMain(char *startup_data, size_t startup_data_len)
 	Assert(startup_data_len == 0);
 
 	/* Release postmaster's working memory context */
-	if (PostmasterContext)
+	if (PostmasterContext) /// 我们不需要PostmasterContext这个内存池了。
 	{
 		MemoryContextDelete(PostmasterContext);
 		PostmasterContext = NULL;
 	}
 
-	MyBackendType = B_AUTOVAC_WORKER;
+	MyBackendType = B_AUTOVAC_WORKER; /// 记录本进程的类型。
 	init_ps_display(NULL);
 
 	SetProcessingMode(InitProcessing);
@@ -1444,6 +1449,7 @@ AutoVacWorkerMain(char *startup_data, size_t startup_data_len)
 
 	sigprocmask(SIG_SETMASK, &UnBlockSig, NULL);
 
+	/// 强制设置一些参数。
 	/*
 	 * Set always-secure search path, so malicious users can't redirect user
 	 * code (e.g. pg_index.indexprs).  (That code runs in a
@@ -1536,7 +1542,7 @@ AutoVacWorkerMain(char *startup_data, size_t startup_data_len)
 
 	if (OidIsValid(dbid))
 	{
-		char		dbname[NAMEDATALEN];
+		char		dbname[NAMEDATALEN]; /// 数据库名称的最大长度是63 #define NAMEDATALEN 64
 
 		/*
 		 * Report autovac startup to the cumulative stats system.  We
@@ -1570,7 +1576,7 @@ AutoVacWorkerMain(char *startup_data, size_t startup_data_len)
 		/* And do an appropriate amount of work */
 		recentXid = ReadNextTransactionId();
 		recentMulti = ReadNextMultiXactId();
-		do_autovacuum();
+		do_autovacuum(); /// 这个是真正干活的函数。
 	}
 
 	/*
@@ -1579,7 +1585,7 @@ AutoVacWorkerMain(char *startup_data, size_t startup_data_len)
 	 */
 
 	/* All done, go away */
-	proc_exit(0);
+	proc_exit(0); /// 正常退出。
 }
 
 /*
@@ -1874,7 +1880,7 @@ get_database_list(void)
  * order not to ignore shutdown commands for too long.
  */
 static void
-do_autovacuum(void)
+do_autovacuum(void) /// 开始对一个数据库的每张表进行vacuum操作。
 {
 	Relation	classRel;
 	HeapTuple	tuple;
@@ -1949,9 +1955,9 @@ do_autovacuum(void)
 	pg_class_desc = CreateTupleDescCopy(RelationGetDescr(classRel));
 
 	/* create hash table for toast <-> main relid mapping */
-	ctl.keysize = sizeof(Oid);
+	ctl.keysize = sizeof(Oid); /// typedef unsigned int Oid; 所以sizeof(Oid)是4。
 	ctl.entrysize = sizeof(av_relation);
-
+	/// 这个哈希表是通过Oid找到表的信息。
 	table_toast_map = hash_create("TOAST to main relid map",
 								  100,
 								  &ctl,
@@ -1989,7 +1995,7 @@ do_autovacuum(void)
 
 		if (classForm->relkind != RELKIND_RELATION &&
 			classForm->relkind != RELKIND_MATVIEW)
-			continue;
+			continue; /// 只扫描表和M View。不处理分区表吗？
 
 		relid = classForm->oid;
 
@@ -1997,7 +2003,7 @@ do_autovacuum(void)
 		 * Check if it is a temp table (presumably, of some other backend's).
 		 * We cannot safely process other backends' temp tables.
 		 */
-		if (classForm->relpersistence == RELPERSISTENCE_TEMP)
+		if (classForm->relpersistence == RELPERSISTENCE_TEMP) /// 不处理临时表
 		{
 			/*
 			 * We just ignore it if the owning backend is still active and
@@ -2023,14 +2029,14 @@ do_autovacuum(void)
 		tabentry = pgstat_fetch_stat_tabentry_ext(classForm->relisshared,
 												  relid);
 
-		/* Check if it needs vacuum or analyze */
+		/* Check if it needs vacuum or analyze */ /// 判断这张表是否需要做vacuum或者analyze，最后三个是输出参数。
 		relation_needs_vacanalyze(relid, relopts, classForm, tabentry,
 								  effective_multixact_freeze_max_age,
 								  &dovacuum, &doanalyze, &wraparound);
 
 		/* Relations that need work are added to table_oids */
 		if (dovacuum || doanalyze)
-			table_oids = lappend_oid(table_oids, relid);
+			table_oids = lappend_oid(table_oids, relid); /// 需要处理的表放在一个队列中？
 
 		/*
 		 * Remember TOAST associations for the second pass.  Note: we must do
@@ -2046,7 +2052,7 @@ do_autovacuum(void)
 								 &classForm->reltoastrelid,
 								 HASH_ENTER, &found);
 
-			if (!found)
+			if (!found) /// 如果没有找到，此时，该记录已经被插入到了哈希表中。
 			{
 				/* hash_search already filled in the key */
 				hentry->ar_relid = relid;
@@ -2084,7 +2090,7 @@ do_autovacuum(void)
 		 * We cannot safely process other backends' temp tables, so skip 'em.
 		 */
 		if (classForm->relpersistence == RELPERSISTENCE_TEMP)
-			continue;
+			continue; /// 不处理临时表
 
 		relid = classForm->oid;
 
@@ -2252,7 +2258,7 @@ do_autovacuum(void)
 	/*
 	 * Perform operations on collected tables.
 	 */
-	foreach(cell, table_oids)
+	foreach(cell, table_oids) /// 队列table_oids中包含所有需要被vacuum或者analyze的表。
 	{
 		Oid			relid = lfirst_oid(cell);
 		HeapTuple	classTup;
@@ -2338,7 +2344,7 @@ do_autovacuum(void)
 		 * concurrently.  (We claim it here so as not to hold
 		 * AutovacuumScheduleLock while rechecking the stats.)
 		 */
-		MyWorkerInfo->wi_tableoid = relid;
+		MyWorkerInfo->wi_tableoid = relid; /// 表的Oid
 		MyWorkerInfo->wi_sharedrel = isshared;
 		LWLockRelease(AutovacuumScheduleLock);
 
@@ -2358,7 +2364,7 @@ do_autovacuum(void)
 			MyWorkerInfo->wi_tableoid = InvalidOid;
 			MyWorkerInfo->wi_sharedrel = false;
 			LWLockRelease(AutovacuumScheduleLock);
-			continue;
+			continue; /// 这张表就不处理了。
 		}
 
 		/*
@@ -2418,7 +2424,7 @@ do_autovacuum(void)
 			MemoryContextSwitchTo(PortalContext);
 
 			/* have at it */
-			autovacuum_do_vac_analyze(tab, bstrategy);
+			autovacuum_do_vac_analyze(tab, bstrategy); /// 开始正式对一张表进行vacuum和analyze了。
 
 			/*
 			 * Clear a possible query-cancel signal, to avoid a late reaction
@@ -2911,7 +2917,7 @@ relation_needs_vacanalyze(Oid relid,
 						  Form_pg_class classForm,
 						  PgStat_StatTabEntry *tabentry,
 						  int effective_multixact_freeze_max_age,
- /* output params below */
+ /* output params below */ /// 出口参数分为三种情况：是不是需要做vacuum，是不是需要做analyze，是不是需要防止wraparound。
 						  bool *dovacuum,
 						  bool *doanalyze,
 						  bool *wraparound)
@@ -3101,7 +3107,7 @@ autovacuum_do_vac_analyze(autovac_table *tab, BufferAccessStrategy bstrategy)
 										"Vacuum",
 										ALLOCSET_DEFAULT_SIZES);
 
-	vacuum(rel_list, &tab->at_params, bstrategy, vac_context, true);
+	vacuum(rel_list, &tab->at_params, bstrategy, vac_context, true); /// 真正干活的函数在此。
 
 	MemoryContextDelete(vac_context);
 }

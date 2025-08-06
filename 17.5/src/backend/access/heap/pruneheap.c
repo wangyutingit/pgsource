@@ -2168,5 +2168,5 @@ log_heap_prune_and_freeze(Relation relation, Buffer buffer,
 	}
 	recptr = XLogInsert(RM_HEAP2_ID, info);
 
-	PageSetLSN(BufferGetPage(buffer), recptr);
+	PageSetLSN(BufferGetPage(buffer), recptr); /// 更新数据页上的LSN为本次WAL的LSN
 }

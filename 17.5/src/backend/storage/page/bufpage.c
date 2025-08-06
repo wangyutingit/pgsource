@@ -840,9 +840,10 @@ PageTruncateLinePointerArray(Page page)
 	int			nunusedend = 0;
 
 	/* Scan line pointer array back-to-front */
-	for (int i = PageGetMaxOffsetNumber(page); i >= FirstOffsetNumber; i--)
+	for (int i = PageGetMaxOffsetNumber(page); i >= FirstOffsetNumber; i--) /// #define FirstOffsetNumber		((OffsetNumber) 1)
 	{
-		ItemId		lp = PageGetItemId(page, i);
+		/// 这个是从后往前扫描。
+		ItemId		lp = PageGetItemId(page, i); /// 根据下标获取指向记录指针(4字节)的指针。
 
 		if (!countdone && i > FirstOffsetNumber)
 		{
