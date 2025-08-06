@@ -84,7 +84,7 @@ static XLogRecPtr last_snapshot_lsn = InvalidXLogRecPtr;
  * basic execution environment, but not enabled signals yet.
  */
 void
-BackgroundWriterMain(char *startup_data, size_t startup_data_len)
+BackgroundWriterMain(char *startup_data, size_t startup_data_len) /// bgwriter的入口函数
 {
 	sigjmp_buf	local_sigjmp_buf;
 	MemoryContext bgwriter_context;
@@ -93,7 +93,7 @@ BackgroundWriterMain(char *startup_data, size_t startup_data_len)
 
 	Assert(startup_data_len == 0);
 
-	MyBackendType = B_BG_WRITER;
+	MyBackendType = B_BG_WRITER; /// 设置本进程的类型。
 	AuxiliaryProcessMainCommon();
 
 	/*

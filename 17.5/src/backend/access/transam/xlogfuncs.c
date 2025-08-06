@@ -58,12 +58,12 @@ pg_backup_start(PG_FUNCTION_ARGS)
 	text	   *backupid = PG_GETARG_TEXT_PP(0);
 	bool		fast = PG_GETARG_BOOL(1);
 	char	   *backupidstr;
-	SessionBackupState status = get_backup_status();
+	SessionBackupState status = get_backup_status(); /// typedef enum SessionBackupState，只有两种状态
 	MemoryContext oldcontext;
 
 	backupidstr = text_to_cstring(backupid);
 
-	if (status == SESSION_BACKUP_RUNNING)
+	if (status == SESSION_BACKUP_RUNNING) /// 说明有一个备份已经在运行中了。
 		ereport(ERROR,
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
 				 errmsg("a backup is already in progress in this session")));
