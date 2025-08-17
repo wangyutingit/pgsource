@@ -54,7 +54,7 @@ AuxiliaryProcessMainCommon(void) /// 辅助进程统一的初始化代码。
 
 	init_ps_display(NULL);
 
-	SetProcessingMode(BootstrapProcessing);
+	SetProcessingMode(BootstrapProcessing); /// Mode = (mode); 只有三种状态
 	IgnoreSystemIndexes = true;
 
 	/*

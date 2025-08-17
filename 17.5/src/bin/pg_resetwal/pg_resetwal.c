@@ -60,10 +60,10 @@
 #include "storage/large_object.h"
 
 static ControlFileData ControlFile; /* pg_control values */
-static XLogSegNo newXlogSegNo;	/* new XLOG segment # */
-static bool guessed = false;	/* T if we had to guess at any values */
+static XLogSegNo newXlogSegNo;	/* new XLOG segment # */ /// typedef uint64 XLogSegNo;
+static bool guessed = false;	/* T if we had to guess at any values */ /// 如果需要猜测，这个变量为true。
 static const char *progname;
-static uint32 set_xid_epoch = (uint32) -1;
+static uint32 set_xid_epoch = (uint32) -1; /// 0xFFFFFFFF
 static TransactionId set_oldest_xid = 0;
 static TransactionId set_xid = 0;
 static TransactionId set_oldest_commit_ts_xid = 0;
@@ -125,6 +125,7 @@ main(int argc, char *argv[])
 
 	if (argc > 1)
 	{
+		/// 这部分逻辑很简单。
 		if (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-?") == 0)
 		{
 			usage();
@@ -321,7 +322,7 @@ main(int argc, char *argv[])
 		exit(1);
 	}
 
-	if (DataDir == NULL)
+	if (DataDir == NULL) /// 如果找不到指定的数据库目录，就退出程序。
 	{
 		pg_log_error("no data directory specified");
 		pg_log_error_hint("Try \"%s --help\" for more information.", progname);
@@ -335,7 +336,7 @@ main(int argc, char *argv[])
 	 * the data directory.
 	 */
 #ifndef WIN32
-	if (geteuid() == 0)
+	if (geteuid() == 0) /// 禁止用root用户运行本程序。
 	{
 		pg_log_error("cannot be executed by \"root\"");
 		pg_log_error_hint("You must run %s as the PostgreSQL superuser.",
@@ -353,20 +354,22 @@ main(int argc, char *argv[])
 
 	umask(pg_mode_mask);
 
-	if (chdir(DataDir) < 0)
+	if (chdir(DataDir) < 0) /// 把本进程的当前目录切换到数据库集群目录。
 		pg_fatal("could not change directory to \"%s\": %m",
 				 DataDir);
 
 	/* Check that data directory matches our server version */
-	CheckDataVersion();
+	CheckDataVersion(); /// 检查PG_VERSION里面的版本号是否匹配。
 
 	/*
 	 * Check for a postmaster lock file --- if there is one, refuse to
 	 * proceed, on grounds we might be interfering with a live installation.
 	 */
+	/// 通过检查postmaster.pid是否存在来判断数据库实例是否正常运行。
+	/// pg_resetwal必须是在关闭数据库实例的前提下才能执行。
 	if ((fd = open("postmaster.pid", O_RDONLY, 0)) < 0)
 	{
-		if (errno != ENOENT)
+		if (errno != ENOENT) /// ENOENT表示该文件不存在，这是正常情况。
 			pg_fatal("could not open file \"%s\" for reading: %m",
 					 "postmaster.pid");
 	}
@@ -380,7 +383,7 @@ main(int argc, char *argv[])
 	/*
 	 * Attempt to read the existing pg_control file
 	 */
-	if (!read_controlfile())
+	if (!read_controlfile()) /// 如果读取控制文件失败，就猜测各种参数。
 		GuessControlValues();
 
 	/*
@@ -389,7 +392,7 @@ main(int argc, char *argv[])
 	if (set_wal_segsize != 0)
 		WalSegSz = set_wal_segsize;
 	else
-		WalSegSz = ControlFile.xlog_seg_size;
+		WalSegSz = ControlFile.xlog_seg_size; /// 如果没有才参数里指定，就用控制文件中的值。
 
 	if (log_fname != NULL)
 		XLogFromFileName(log_fname, &minXlogTli, &minXlogSegNo, WalSegSz);
@@ -515,7 +518,7 @@ main(int argc, char *argv[])
  * to prevent simple user errors.
  */
 static void
-CheckDataVersion(void)
+CheckDataVersion(void) /// 就是读取PG_VERSION里的值和软件本身写死的值进行对比，相同就继续往下走，否则就报错退出。
 {
 	const char *ver_file = "PG_VERSION";
 	FILE	   *ver_fd;
@@ -537,7 +540,7 @@ CheckDataVersion(void)
 	/* strip trailing newline and carriage return */
 	(void) pg_strip_crlf(rawline);
 
-	if (strcmp(rawline, PG_MAJORVERSION) != 0)
+	if (strcmp(rawline, PG_MAJORVERSION) != 0) /// src/include/pg_config.h:#define PG_MAJORVERSION "18"
 	{
 		pg_log_error("data directory is of wrong version");
 		pg_log_error_detail("File \"%s\" contains \"%s\", which is not compatible with this program's version \"%s\".",
@@ -563,7 +566,7 @@ read_controlfile(void)
 	char	   *buffer;
 	pg_crc32c	crc;
 
-	if ((fd = open(XLOG_CONTROL_FILE, O_RDONLY | PG_BINARY, 0)) < 0)
+	if ((fd = open(XLOG_CONTROL_FILE, O_RDONLY | PG_BINARY, 0)) < 0) /// #define XLOG_CONTROL_FILE	"global/pg_control"
 	{
 		/*
 		 * If pg_control is not there at all, or we can't read it, the odds
@@ -581,8 +584,8 @@ read_controlfile(void)
 	}
 
 	/* Use malloc to ensure we have a maxaligned buffer */
-	buffer = (char *) pg_malloc(PG_CONTROL_FILE_SIZE);
-
+	buffer = (char *) pg_malloc(PG_CONTROL_FILE_SIZE); /// #define PG_CONTROL_FILE_SIZE		8192
+	/// 一口气读入8192字节到内存。
 	len = read(fd, buffer, PG_CONTROL_FILE_SIZE);
 	if (len < 0)
 		pg_fatal("could not read file \"%s\": %m", XLOG_CONTROL_FILE);
@@ -590,6 +593,8 @@ read_controlfile(void)
 
 	if (len >= sizeof(ControlFileData) &&
 		((ControlFileData *) buffer)->pg_control_version == PG_CONTROL_VERSION)
+		/// #define PG_CONTROL_VERSION	1700 检查控制文件的版本。
+
 	{
 		/* Check the CRC. */
 		INIT_CRC32C(crc);
@@ -598,17 +603,18 @@ read_controlfile(void)
 					offsetof(ControlFileData, crc));
 		FIN_CRC32C(crc);
 
-		if (!EQ_CRC32C(crc, ((ControlFileData *) buffer)->crc))
+		if (!EQ_CRC32C(crc, ((ControlFileData *) buffer)->crc)) /// crc是四字节的校验码
 		{
 			/* We will use the data but treat it as guessed. */
 			pg_log_warning("pg_control exists but has invalid CRC; proceed with caution");
 			guessed = true;
+			/// 因为控制文件的信息校验码不对，就要猜测控制文件的内容。
 		}
 
-		memcpy(&ControlFile, buffer, sizeof(ControlFile));
+		memcpy(&ControlFile, buffer, sizeof(ControlFile)); /// 把控制文件的内容拷贝到ControlFile结构中。
 
 		/* return false if WAL segment size is not valid */
-		if (!IsValidWalSegSize(ControlFile.xlog_seg_size))
+		if (!IsValidWalSegSize(ControlFile.xlog_seg_size)) /// 三个检查条件，1MB和1GB之间，且是2的指数。
 		{
 			pg_log_warning(ngettext("pg_control specifies invalid WAL segment size (%d byte); proceed with caution",
 									"pg_control specifies invalid WAL segment size (%d bytes); proceed with caution",
@@ -630,7 +636,7 @@ read_controlfile(void)
  * Guess at pg_control values when we can't read the old ones.
  */
 static void
-GuessControlValues(void)
+GuessControlValues(void) /// 就是往ControlFile这个结构中插入一些写死的值
 {
 	uint64		sysidentifier;
 	struct timeval tv;
@@ -642,7 +648,7 @@ GuessControlValues(void)
 	memset(&ControlFile, 0, sizeof(ControlFile));
 
 	ControlFile.pg_control_version = PG_CONTROL_VERSION;
-	ControlFile.catalog_version_no = CATALOG_VERSION_NO;
+	ControlFile.catalog_version_no = CATALOG_VERSION_NO; /// #define CATALOG_VERSION_NO	202406281
 
 	/*
 	 * Create a new unique installation identifier, since we can no longer use
@@ -651,7 +657,7 @@ GuessControlValues(void)
 	gettimeofday(&tv, NULL);
 	sysidentifier = ((uint64) tv.tv_sec) << 32;
 	sysidentifier |= ((uint64) tv.tv_usec) << 12;
-	sysidentifier |= getpid() & 0xFFF;
+	sysidentifier |= getpid() & 0xFFF; /// 随机产生一个8字节的系统标识符。
 
 	ControlFile.system_identifier = sysidentifier;
 
@@ -713,7 +719,7 @@ GuessControlValues(void)
  * reset by RewriteControlFile().
  */
 static void
-PrintControlValues(bool guessed)
+PrintControlValues(bool guessed) /// 这些是控制文件中不会被本程序改变的值。
 {
 	if (guessed)
 		printf(_("Guessed pg_control values:\n\n"));
@@ -927,7 +933,7 @@ FindEndOfXLOG(void)
 	if (xldir == NULL)
 		pg_fatal("could not open directory \"%s\": %m", XLOGDIR);
 
-	while (errno = 0, (xlde = readdir(xldir)) != NULL)
+	while (errno = 0, (xlde = readdir(xldir)) != NULL) /// 读取pg_wal目录下所有的合法的WAL文件
 	{
 		if (IsXLogFileName(xlde->d_name) ||
 			IsPartialXLogFileName(xlde->d_name))
@@ -946,7 +952,7 @@ FindEndOfXLOG(void)
 			 * Better too large a result than too small...
 			 */
 			if (segno > newXlogSegNo)
-				newXlogSegNo = segno;
+				newXlogSegNo = segno; /// 获取最大的段文件编号。
 		}
 	}
 
@@ -970,20 +976,20 @@ FindEndOfXLOG(void)
  * Remove existing XLOG files
  */
 static void
-KillExistingXLOG(void)
+KillExistingXLOG(void) /// 删除pg_wal目录下所有的WAL文件
 {
 	DIR		   *xldir;
 	struct dirent *xlde;
 	char		path[MAXPGPATH + sizeof(XLOGDIR)];
 
-	xldir = opendir(XLOGDIR);
+	xldir = opendir(XLOGDIR); /// #define XLOGDIR				"pg_wal"
 	if (xldir == NULL)
 		pg_fatal("could not open directory \"%s\": %m", XLOGDIR);
 
 	while (errno = 0, (xlde = readdir(xldir)) != NULL)
 	{
 		if (IsXLogFileName(xlde->d_name) ||
-			IsPartialXLogFileName(xlde->d_name))
+			IsPartialXLogFileName(xlde->d_name)) /// 如果某个文件名符合WAL文件的特征，就删除它。
 		{
 			snprintf(path, sizeof(path), "%s/%s", XLOGDIR, xlde->d_name);
 			if (unlink(path) < 0)

@@ -184,11 +184,11 @@ split_path(const char *path, char **dir, char **fname)
  *
  * return a read only fd
  */
-static int
+static int /// 通过open()函数打开文件，并返回文件句柄。
 open_file_in_directory(const char *directory, const char *fname)
 {
 	int			fd = -1;
-	char		fpath[MAXPGPATH];
+	char		fpath[MAXPGPATH]; /// #define MAXPGPATH		1024
 
 	Assert(directory != NULL);
 
@@ -206,7 +206,7 @@ open_file_in_directory(const char *directory, const char *fname)
  * file with a valid WAL file name. If file is successfully opened, set the
  * wal segment size.
  */
-static bool
+static bool /// 在目录directory中寻找指定的文件fname，如果fname为NULL，则寻找第一个合法的WAL文件，并检查WAL文件的大小。
 search_directory(const char *directory, const char *fname)
 {
 	int			fd = -1;
@@ -225,13 +225,13 @@ search_directory(const char *directory, const char *fname)
 	{
 		struct dirent *xlde;
 
-		while ((xlde = readdir(xldir)) != NULL)
+		while ((xlde = readdir(xldir)) != NULL) /// 读取目录中的所有文件名
 		{
-			if (IsXLogFileName(xlde->d_name))
+			if (IsXLogFileName(xlde->d_name)) /// 该文件名是否是合法的WAL文件名？长度为24，全部由0-9，A-F组成。
 			{
 				fd = open_file_in_directory(directory, xlde->d_name);
 				fname = pg_strdup(xlde->d_name);
-				break;
+				break; /// 找到第一个就中断循环。
 			}
 		}
 
@@ -239,12 +239,12 @@ search_directory(const char *directory, const char *fname)
 	}
 
 	/* set WalSegSz if file is successfully opened */
-	if (fd >= 0)
+	if (fd >= 0) /// fd >= 0说明正常打开了一个WAL文件。
 	{
 		PGAlignedXLogBlock buf;
 		int			r;
 
-		r = read(fd, buf.data, XLOG_BLCKSZ);
+		r = read(fd, buf.data, XLOG_BLCKSZ); /// 读第一个8KB的page。XLOG_BLCKSZ = 8192
 		if (r == XLOG_BLCKSZ)
 		{
 			XLogLongPageHeader longhdr = (XLogLongPageHeader) buf.data;
@@ -318,7 +318,7 @@ identify_target_directory(char *directory, char *fname)
 		/* $PGDATA / XLOGDIR */
 		if (datadir != NULL)
 		{
-			snprintf(fpath, MAXPGPATH, "%s/%s", datadir, XLOGDIR);
+			snprintf(fpath, MAXPGPATH, "%s/%s", datadir, XLOGDIR); /// #define XLOGDIR				"pg_wal"
 			if (search_directory(fpath, fname))
 				return pg_strdup(fpath);
 		}
@@ -833,7 +833,7 @@ main(int argc, char **argv)
 
 	pg_logging_init(argv[0]);
 	set_pglocale_pgservice(argv[0], PG_TEXTDOMAIN("pg_waldump"));
-	progname = get_progname(argv[0]);
+	progname = get_progname(argv[0]); /// progname = "pg_waldump"
 
 	if (argc > 1)
 	{
@@ -925,7 +925,7 @@ main(int argc, char **argv)
 				config.filter_by_extended = true;
 				break;
 			case 'n':
-				if (sscanf(optarg, "%d", &config.stop_after_records) != 1)
+				if (sscanf(optarg, "%d", &config.stop_after_records) != 1) /// config.stop_after_records的值就是参数-n后面跟着的那个值。
 				{
 					pg_log_error("invalid value \"%s\" for option %s", optarg, "-n/--limit");
 					goto bad_argument;

@@ -98,7 +98,7 @@ typedef XLogLongPageHeaderData *XLogLongPageHeader;
 	 ((size) >= WalSegMinSize && (size) <= WalSegMaxSize))
 
 #define XLogSegmentsPerXLogId(wal_segsz_bytes)	\
-	(UINT64CONST(0x100000000) / (wal_segsz_bytes))
+	(UINT64CONST(0x100000000) / (wal_segsz_bytes)) /// 4GB除于WAL文件的大小，16MB就是256
 
 #define XLogSegNoOffsetToRecPtr(segno, offset, wal_segsz_bytes, dest) \
 		(dest) = (segno) * (wal_segsz_bytes) + (offset)
