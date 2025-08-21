@@ -124,8 +124,8 @@ StartupProcShutdownHandler(SIGNAL_ARGS)
 static void
 StartupRereadConfig(void)
 {
-	char	   *conninfo = pstrdup(PrimaryConnInfo);
-	char	   *slotname = pstrdup(PrimarySlotName);
+	char	   *conninfo = pstrdup(PrimaryConnInfo); /// 这个参数是备库所必须的。
+	char	   *slotname = pstrdup(PrimarySlotName); /// 这是备库可选的参数。
 	bool		tempSlot = wal_receiver_create_temp_slot;
 	bool		conninfoChanged;
 	bool		slotnameChanged;
@@ -261,7 +261,7 @@ StartupProcessMain(char *startup_data, size_t startup_data_len) /// startup进�
 	 * Exit normally. Exit code 0 tells postmaster that we completed recovery
 	 * successfully.
 	 */
-	proc_exit(0);
+	proc_exit(0); /// 干净地退出本进程。
 }
 
 void

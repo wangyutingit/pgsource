@@ -49,7 +49,7 @@ typedef struct XLogPageHeaderData
 	uint32		xlp_rem_len;	/* total len of remaining data for record */
 } XLogPageHeaderData;
 
-#define SizeOfXLogShortPHD	MAXALIGN(sizeof(XLogPageHeaderData))
+#define SizeOfXLogShortPHD	MAXALIGN(sizeof(XLogPageHeaderData)) /// 24字节
 
 typedef XLogPageHeaderData *XLogPageHeader;
 
@@ -66,7 +66,7 @@ typedef struct XLogLongPageHeaderData
 	uint32		xlp_xlog_blcksz;	/* just as a cross-check */
 } XLogLongPageHeaderData;
 
-#define SizeOfXLogLongPHD	MAXALIGN(sizeof(XLogLongPageHeaderData))
+#define SizeOfXLogLongPHD	MAXALIGN(sizeof(XLogLongPageHeaderData)) /// 40字节。
 
 typedef XLogLongPageHeaderData *XLogLongPageHeader;
 
@@ -196,7 +196,7 @@ IsPartialXLogFileName(const char *fname)
 			strcmp(fname + XLOG_FNAME_LEN, ".partial") == 0);
 }
 
-static inline void
+static inline void /// 根据WAL文件的文件名，计算出一维的WAL文件的编号。
 XLogFromFileName(const char *fname, TimeLineID *tli, XLogSegNo *logSegNo, int wal_segsz_bytes)
 {
 	uint32		log;
@@ -206,7 +206,7 @@ XLogFromFileName(const char *fname, TimeLineID *tli, XLogSegNo *logSegNo, int wa
 	*logSegNo = (uint64) log * XLogSegmentsPerXLogId(wal_segsz_bytes) + seg;
 }
 
-static inline void
+static inline void /// logSegNo是一维的编号。
 XLogFilePath(char *path, TimeLineID tli, XLogSegNo logSegNo, int wal_segsz_bytes)
 {
 	snprintf(path, MAXPGPATH, XLOGDIR "/%08X%08X%08X", tli,

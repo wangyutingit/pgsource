@@ -47,7 +47,7 @@ bool		ignore_invalid_pages = false;
  * This is updated from xlog.c and xlogrecovery.c, but lives here because
  * it's mostly read by WAL redo functions.
  */
-bool		InRecovery = false;
+bool		InRecovery = false; /// 表示我们是否需要做WAL回放。初始值是false，在其它条件满足时被设置为true。
 
 /* Are we in Hot Standby mode? Only valid in startup process, see xlogutils.h */
 HotStandbyState standbyState = STANDBY_DISABLED;

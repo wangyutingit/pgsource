@@ -4092,7 +4092,7 @@ RemoveXlogFile(const struct dirent *segment_de,
  * plain directory would result in degraded performance with no notice.
  */
 static void
-ValidateXLOGDirectoryStructure(void) /// 检查pg_wal目录的状态，检查的地方都三个点。pg_wal是否存在，是否是目录？archive_status和summaries子目录是否存在？
+ValidateXLOGDirectoryStructure(void) /// 检查pg_wal目录的状态，检查的地方都三点。pg_wal是否存在，是否是目录？archive_status和summaries子目录是否存在？
 {
 	char		path[MAXPGPATH];
 	struct stat stat_buf;
@@ -5431,6 +5431,7 @@ StartupXLOG(void)
 	/*
 	 * Check that contents look valid.
 	 */
+	/// WAL文件按8KB划分，每页有24字节的头，第一页有40字节的头。
 	if (!XRecOffIsValid(ControlFile->checkPoint)) /// 检查一下控制文件中检查点的LSN是否处于合法的位置。
 		ereport(FATAL,
 				(errcode(ERRCODE_DATA_CORRUPTED),
@@ -5529,7 +5530,7 @@ StartupXLOG(void)
 		didCrash = true; /// disCrash的条件就是控制文件中的状态是否是两个干净关闭的值。
 	}
 	else
-		didCrash = false;
+		didCrash = false; /// 根据控制文件中的状态判断，DB_SHUTDOWNED表示干净地关闭。
 
 	/*
 	 * Prepare for WAL recovery if needed.
@@ -5541,7 +5542,7 @@ StartupXLOG(void)
 	 */
 	InitWalRecovery(ControlFile, &wasShutdown,
 					&haveBackupLabel, &haveTblspcMap);
-	checkPoint = ControlFile->checkPointCopy;
+	checkPoint = ControlFile->checkPointCopy; /// 获得CheckPoint的WAL记录。
 
 	/* initialize shared memory variables from the checkpoint record */
 	TransamVariables->nextXid = checkPoint.nextXid;
@@ -5659,13 +5660,13 @@ StartupXLOG(void)
 	else
 		pgstat_restore_stats();
 
-	lastFullPageWrites = checkPoint.fullPageWrites;
+	lastFullPageWrites = checkPoint.fullPageWrites; /// 检查点WAL记录中全页写的设置
 
 	RedoRecPtr = XLogCtl->RedoRecPtr = XLogCtl->Insert.RedoRecPtr = checkPoint.redo;
 	doPageWrites = lastFullPageWrites;
 
 	/* REDO */
-	if (InRecovery)
+	if (InRecovery) /// 只有InRecovery为true时才执行恢复操作。
 	{
 		/* Initialize state for RecoveryInProgress() */
 		SpinLockAcquire(&XLogCtl->info_lck);
@@ -5693,7 +5694,7 @@ StartupXLOG(void)
 		 * to the backup start point.  It seems prudent though to just rename
 		 * the file out of the way rather than delete it completely.
 		 */
-		if (haveBackupLabel)
+		if (haveBackupLabel) /// 如果有backup_label文件，就把它改个名字，防止下次再次使用。
 		{
 			unlink(BACKUP_LABEL_OLD);
 			durable_rename(BACKUP_LABEL_FILE, BACKUP_LABEL_OLD, FATAL);

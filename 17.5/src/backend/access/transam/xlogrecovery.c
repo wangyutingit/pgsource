@@ -589,6 +589,7 @@ InitWalRecovery(ControlFileData *ControlFile, bool *wasShutdown_ptr,
 	 * process after checking for signal files and after performing validation
 	 * of the recovery parameters.
 	 */
+	/// 如果发现了backup_label文件。
 	if (read_backup_label(&CheckPointLoc, &CheckPointTLI, &backupEndRequired,
 						  &backupFromStandby))
 	{
@@ -628,6 +629,7 @@ InitWalRecovery(ControlFileData *ControlFile, bool *wasShutdown_ptr,
 		if (record != NULL)
 		{
 			memcpy(&checkPoint, XLogRecGetData(xlogreader), sizeof(CheckPoint));
+			/// 如果读取的是SHUTDOWN类型的CheckPoint,则wasShutdown = true
 			wasShutdown = ((record->xl_info & ~XLR_INFO_MASK) == XLOG_CHECKPOINT_SHUTDOWN);
 			ereport(DEBUG1,
 					(errmsg_internal("checkpoint record is at %X/%X",
@@ -701,7 +703,7 @@ InitWalRecovery(ControlFileData *ControlFile, bool *wasShutdown_ptr,
 		/* tell the caller to delete it later */
 		haveBackupLabel = true;
 	}
-	else
+	else /// 没有发现backup_label文件。
 	{
 		/* No backup_label file has been found if we are here. */
 
@@ -893,7 +895,7 @@ InitWalRecovery(ControlFileData *ControlFile, bool *wasShutdown_ptr,
 				(errmsg("invalid next transaction ID")));
 
 	/* sanity check */
-	if (checkPoint.redo > CheckPointLoc)
+	if (checkPoint.redo > CheckPointLoc) /// redo点是不可能大于CheckPoint的WAL记录的LSN的。 
 		ereport(PANIC,
 				(errmsg("invalid redo in checkpoint record")));
 
@@ -904,7 +906,7 @@ InitWalRecovery(ControlFileData *ControlFile, bool *wasShutdown_ptr,
 	 */
 	if (checkPoint.redo < CheckPointLoc)
 	{
-		if (wasShutdown)
+		if (wasShutdown) /// 当CheckPoint的类型是SHUTDOWN类型，redo == CheckPointLoc
 			ereport(PANIC,
 					(errmsg("invalid redo record in shutdown checkpoint")));
 		InRecovery = true;
@@ -1011,6 +1013,7 @@ InitWalRecovery(ControlFileData *ControlFile, bool *wasShutdown_ptr,
 	abortedRecPtr = InvalidXLogRecPtr;
 	missingContrecPtr = InvalidXLogRecPtr;
 
+	/// 最后是返回三个输出结果的参数。
 	*wasShutdown_ptr = wasShutdown;
 	*haveBackupLabel_ptr = haveBackupLabel;
 	*haveTblspcMap_ptr = haveTblspcMap;
