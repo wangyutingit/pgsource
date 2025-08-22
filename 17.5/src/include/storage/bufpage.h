@@ -75,7 +75,8 @@
  * fields.
  */
 
-typedef Pointer Page;
+typedef Pointer Page; /// typedef char *Pointer;
+
 
 
 /*
@@ -296,10 +297,10 @@ PageGetPageLayoutVersion(Page page)
 static inline void
 PageSetPageSizeAndVersion(Page page, Size size, uint8 version)
 {
-	Assert((size & 0xFF00) == size);
+	Assert((size & 0xFF00) == size); /// size的最低一个字节是00，size的值通常是BLCKSZ，8192字节，0x2000
 	Assert((version & 0x00FF) == version);
 
-	((PageHeader) page)->pd_pagesize_version = size | version;
+	((PageHeader) page)->pd_pagesize_version = size | version; /// 两个值或起来，分为高2字节和低2字节。
 }
 
 /* ----------------

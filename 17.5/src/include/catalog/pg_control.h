@@ -226,10 +226,10 @@ typedef struct ControlFileData /// 控制文件中的内容
 	 * based on values that are cluster-unique, like a SASL exchange that
 	 * failed at an early stage.
 	 */
-	char		mock_authentication_nonce[MOCK_AUTH_NONCE_LEN];
+	char		mock_authentication_nonce[MOCK_AUTH_NONCE_LEN]; /// #define MOCK_AUTH_NONCE_LEN		32
 
 	/* CRC of all above ... MUST BE LAST! */
-	pg_crc32c	crc; /// typedef uint32 pg_crc32c; 四字节的校验码ß
+	pg_crc32c	crc; /// typedef uint32 pg_crc32c; 四字节的校验码，必须放在最后。
 } ControlFileData;
 
 /*

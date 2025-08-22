@@ -95,7 +95,7 @@ typedef XLogLongPageHeaderData *XLogLongPageHeader;
 #define IsPowerOf2(x) (x > 0 && ((x) & ((x)-1)) == 0)
 #define IsValidWalSegSize(size) \
 	 (IsPowerOf2(size) && \
-	 ((size) >= WalSegMinSize && (size) <= WalSegMaxSize))
+	 ((size) >= WalSegMinSize && (size) <= WalSegMaxSize)) /// 三个判断条件。
 
 #define XLogSegmentsPerXLogId(wal_segsz_bytes)	\
 	(UINT64CONST(0x100000000) / (wal_segsz_bytes)) /// 4GB除于WAL文件的大小，16MB就是256

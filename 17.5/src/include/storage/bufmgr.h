@@ -185,8 +185,7 @@ extern PGDLLIMPORT int32 *LocalRefCount;
 #define MAX_IO_CONCURRENCY 1000
 
 /* special block number for ReadBuffer() */
-#define P_NEW	InvalidBlockNumber	/* grow the file to get a new page */
-
+#define P_NEW	InvalidBlockNumber	/* grow the file to get a new page */ /// #define InvalidBlockNumber		((BlockNumber) 0xFFFFFFFF)
 /*
  * Buffer content lock modes (mode argument for LockBuffer())
  */
@@ -352,12 +351,12 @@ extern void FreeAccessStrategy(BufferAccessStrategy strategy);
  * now demoted the range checks to assertions within the macro itself.
  */
 static inline bool
-BufferIsValid(Buffer bufnum)
+BufferIsValid(Buffer bufnum) /// typedef int Buffer; 非零即为有效。
 {
 	Assert(bufnum <= NBuffers);
 	Assert(bufnum >= -NLocBuffer);
 
-	return bufnum != InvalidBuffer;
+	return bufnum != InvalidBuffer; /// #define InvalidBuffer	0
 }
 
 /*
@@ -367,12 +366,12 @@ BufferIsValid(Buffer bufnum)
  * Note:
  *		Assumes buffer is valid.
  */
-static inline Block
+static inline Block /// typedef void *Block; 根据下标返回指向内存的指针。
 BufferGetBlock(Buffer buffer)
 {
 	Assert(BufferIsValid(buffer));
 
-	if (BufferIsLocal(buffer))
+	if (BufferIsLocal(buffer)) /// 如果buffer < 0，即为私有内存的数据页。
 		return LocalBufferBlockPointers[-buffer - 1];
 	else
 		return (Block) (BufferBlocks + ((Size) (buffer - 1)) * BLCKSZ);
@@ -390,7 +389,7 @@ BufferGetBlock(Buffer buffer)
  */
 /* XXX should dig out of buffer descriptor */
 static inline Size
-BufferGetPageSize(Buffer buffer)
+BufferGetPageSize(Buffer buffer) /// 直接返回BLCKSZ，这个常量在configure时确定。
 {
 	AssertMacro(BufferIsValid(buffer));
 	return (Size) BLCKSZ;
@@ -400,7 +399,7 @@ BufferGetPageSize(Buffer buffer)
  * BufferGetPage
  *		Returns the page associated with a buffer.
  */
-static inline Page
+static inline Page /// typedef Pointer Page; typedef char *Pointer; 就是指向一块内存的指针。
 BufferGetPage(Buffer buffer)
 {
 	return (Page) BufferGetBlock(buffer);

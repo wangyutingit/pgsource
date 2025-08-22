@@ -64,7 +64,7 @@ HotStandbyState standbyState = STANDBY_DISABLED;
  */
 typedef struct xl_invalid_page_key
 {
-	RelFileLocator locator;		/* the relation */
+	RelFileLocator locator;		/* the relation */ /// 定位一张表的三元组。
 	ForkNumber	forkno;			/* the fork number */
 	BlockNumber blkno;			/* the page */
 } xl_invalid_page_key;
@@ -75,7 +75,7 @@ typedef struct xl_invalid_page
 	bool		present;		/* page existed but contained zeroes */
 } xl_invalid_page;
 
-static HTAB *invalid_page_tab = NULL;
+static HTAB *invalid_page_tab = NULL; /// 设置一个无效数据块的哈希表。
 
 static int	read_local_xlog_page_guts(XLogReaderState *state, XLogRecPtr targetPagePtr,
 									  int reqLen, XLogRecPtr targetRecPtr,
@@ -129,7 +129,7 @@ log_invalid_page(RelFileLocator locator, ForkNumber forkno, BlockNumber blkno,
 	if (message_level_is_interesting(DEBUG1))
 		report_invalid_page(DEBUG1, locator, forkno, blkno, present);
 
-	if (invalid_page_tab == NULL)
+	if (invalid_page_tab == NULL) /// 如果哈希表还没有被创建，就首先创建这个哈希表。
 	{
 		/* create hash table when first needed */
 		HASHCTL		ctl;
@@ -150,12 +150,12 @@ log_invalid_page(RelFileLocator locator, ForkNumber forkno, BlockNumber blkno,
 	hentry = (xl_invalid_page *)
 		hash_search(invalid_page_tab, &key, HASH_ENTER, &found);
 
-	if (!found)
+	if (!found) /// 如果没有找到，这条记录已经插入到了哈希表中了。
 	{
 		/* hash_search already filled in the key */
 		hentry->present = present;
 	}
-	else
+	else /// 啥也不做，这个else可以去掉了。
 	{
 		/* repeat reference ... leave "present" as it was */
 	}
@@ -169,7 +169,7 @@ forget_invalid_pages(RelFileLocator locator, ForkNumber forkno,
 	HASH_SEQ_STATUS status;
 	xl_invalid_page *hentry;
 
-	if (invalid_page_tab == NULL)
+	if (invalid_page_tab == NULL) /// 如果哈希表不存在，就啥也不做。
 		return;					/* nothing to do */
 
 	hash_seq_init(&status, invalid_page_tab);
@@ -232,7 +232,7 @@ forget_invalid_pages_db(Oid dbid)
 
 /* Are there any unresolved references to invalid pages? */
 bool
-XLogHaveInvalidPages(void)
+XLogHaveInvalidPages(void) /// 检查哈希表中是否还有元素存在，如果有的话，就返回true，否则返回false。
 {
 	if (invalid_page_tab != NULL &&
 		hash_get_num_entries(invalid_page_tab) > 0)
@@ -268,7 +268,7 @@ XLogCheckInvalidPages(void)
 		elog(ignore_invalid_pages ? WARNING : PANIC,
 			 "WAL contains references to invalid pages");
 
-	hash_destroy(invalid_page_tab);
+	hash_destroy(invalid_page_tab); /// 销毁该哈希表。
 	invalid_page_tab = NULL;
 }
 
@@ -470,7 +470,7 @@ XLogReadBufferForRedoExtended(XLogReaderState *record,
 Buffer
 XLogReadBufferExtended(RelFileLocator rlocator, ForkNumber forknum,
 					   BlockNumber blkno, ReadBufferMode mode,
-					   Buffer recent_buffer)
+					   Buffer recent_buffer) /// typedef int Buffer;
 {
 	BlockNumber lastblock;
 	Buffer		buffer;
@@ -541,7 +541,7 @@ recent_buffer_fast_path:
 		 * there should be no other backends that could modify the buffer at
 		 * the same time.
 		 */
-		if (PageIsNew(page))
+		if (PageIsNew(page)) /// return ((PageHeader) page)->pd_upper == 0;
 		{
 			ReleaseBuffer(buffer);
 			log_invalid_page(rlocator, forknum, blkno, true);

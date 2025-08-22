@@ -38,7 +38,7 @@ bool		ignore_checksum_failure = false;
  *		Note that we don't calculate an initial checksum here; that's not done
  *		until it's time to write.
  */
-void
+void /// 初始化一个数据页，把8192字节清零，然后设置页头的一些成员变量
 PageInit(Page page, Size pageSize, Size specialSize)
 {
 	PageHeader	p = (PageHeader) page;
@@ -49,13 +49,13 @@ PageInit(Page page, Size pageSize, Size specialSize)
 	Assert(pageSize > specialSize + SizeOfPageHeaderData);
 
 	/* Make sure all fields of page are zero, as well as unused space */
-	MemSet(p, 0, pageSize);
+	MemSet(p, 0, pageSize); /// pageSize就是BLCKSZ，这个区域全部清零。
 
 	p->pd_flags = 0;
 	p->pd_lower = SizeOfPageHeaderData;
-	p->pd_upper = pageSize - specialSize;
+	p->pd_upper = pageSize - specialSize; /// 数据页初始完毕后，pd_upper指针所包含的值是大于0的。
 	p->pd_special = pageSize - specialSize;
-	PageSetPageSizeAndVersion(page, pageSize, PG_PAGE_LAYOUT_VERSION);
+	PageSetPageSizeAndVersion(page, pageSize, PG_PAGE_LAYOUT_VERSION); /// #define PG_PAGE_LAYOUT_VERSION		4
 	/* p->pd_prune_xid = InvalidTransactionId;		done by above MemSet */
 }
 

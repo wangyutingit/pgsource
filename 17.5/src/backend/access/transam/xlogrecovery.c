@@ -164,7 +164,7 @@ static bool recovery_signal_file_found = false;
  * reading the checkpoint record, because the REDO record can precede the
  * checkpoint record.
  */
-static XLogRecPtr CheckPointLoc = InvalidXLogRecPtr;
+static XLogRecPtr CheckPointLoc = InvalidXLogRecPtr; /// #define InvalidXLogRecPtr	0
 static TimeLineID CheckPointTLI = 0;
 static XLogRecPtr RedoStartLSN = InvalidXLogRecPtr;
 static TimeLineID RedoStartTLI = 0;
@@ -196,7 +196,7 @@ typedef struct XLogPageReadPrivate
 	int			emode;
 	bool		fetching_ckpt;	/* are we fetching a checkpoint record? */
 	bool		randAccess;
-	TimeLineID	replayTLI;
+	TimeLineID	replayTLI; /// typedef uint32 TimeLineID;
 } XLogPageReadPrivate;
 
 /* flag to tell XLogPageRead that we have started replaying */
@@ -4468,12 +4468,12 @@ RemovePromoteSignalFiles(void) /// 就是调用unlink系统函数删除promote�
  * Check to see if a promote request has arrived.
  */
 bool
-CheckPromoteSignal(void)
+CheckPromoteSignal(void) /// 就是检查promote文件是否存在
 {
 	struct stat stat_buf;
 
-	if (stat(PROMOTE_SIGNAL_FILE, &stat_buf) == 0)
-		return true;
+	if (stat(PROMOTE_SIGNAL_FILE, &stat_buf) == 0) /// #define PROMOTE_SIGNAL_FILE		"promote"
+		return true; /// 如果存在就返回true，否则返回false。
 
 	return false;
 }

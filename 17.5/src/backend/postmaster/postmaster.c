@@ -3711,7 +3711,7 @@ ExitPostmaster(int status) /// 退出postmaster主进程，会在本进程退出
 static void
 process_pm_pmsignal(void)
 {
-	pending_pm_pmsignal = false;
+	pending_pm_pmsignal = false; /// 重新置位
 
 	ereport(DEBUG2,
 			(errmsg_internal("postmaster received pmsignal signal")));
@@ -3846,10 +3846,10 @@ process_pm_pmsignal(void)
 		PostmasterStateMachine();
 	}
 
-	if (StartupPID != 0 &&
+	if (StartupPID != 0 && /// 这表明Startup进程正在运行中。
 		(pmState == PM_STARTUP || pmState == PM_RECOVERY ||
 		 pmState == PM_HOT_STANDBY) &&
-		CheckPromoteSignal())
+		CheckPromoteSignal()) /// CheckPromoteSignal()检查promote文件是否存在，如果存在就返回true。
 	{
 		/*
 		 * Tell startup process to finish recovery.
