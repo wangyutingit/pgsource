@@ -218,7 +218,7 @@ BackgroundWriterMain(char *startup_data, size_t startup_data_len) /// bgwriter�
 	/*
 	 * Loop forever
 	 */
-	for (;;)
+	for (;;) /// 无限循环
 	{
 		bool		can_hibernate;
 		int			rc;
@@ -231,7 +231,7 @@ BackgroundWriterMain(char *startup_data, size_t startup_data_len) /// bgwriter�
 		/*
 		 * Do one cycle of dirty-buffer writing.
 		 */
-		can_hibernate = BgBufferSync(&wb_context);
+		can_hibernate = BgBufferSync(&wb_context); /// 主要的工作函数
 
 		/* Report pending statistics to the cumulative stats system */
 		pgstat_report_bgwriter();

@@ -387,19 +387,15 @@ CheckpointerMain(char *startup_data, size_t startup_data_len) /// CheckPoint的�
 		 * occurs without an external request, but we set the CAUSE_TIME flag
 		 * bit even if there is also an external request.
 		 */
-<<<<<<< HEAD
 		now = (pg_time_t) time(NULL);
 		elapsed_secs = now - last_checkpoint_time; /// 记录距离上一次检查点执行后的时间
-=======
 		now = (pg_time_t) time(NULL); /// 获取当前的时间
 		elapsed_secs = now - last_checkpoint_time; /// elapsed_secs是自上一次检查点以后流逝的秒数。
->>>>>>> b3e02377e66a6638ca03e1c9c6ed7cd699f81391
 		if (elapsed_secs >= CheckPointTimeout) /// 因为超时，会触发检查点操作。
 		{
 			if (!do_checkpoint)
 				chkpt_or_rstpt_timed = true; /// 有可能ckpt_flags被设置为非零，应该统计为request的检查点。
 			do_checkpoint = true;
-<<<<<<< HEAD
 			flags |= CHECKPOINT_CAUSE_TIME;  /// 设置超时标志。走到这里，flags的初始值是0。
 =======
 			flags |= CHECKPOINT_CAUSE_TIME; /// 设置标志位，表示是因为超时导致的检查点。
