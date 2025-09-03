@@ -969,7 +969,7 @@ PGSharedMemoryNoReAttach(void)
  * routine, also AnonymousShmem and AnonymousShmemSize.
  */
 void
-PGSharedMemoryDetach(void)
+PGSharedMemoryDetach(void) /// 就是调用shmdt和munmap两个系统调用。
 {
 	if (UsedShmemSegAddr != NULL)
 	{

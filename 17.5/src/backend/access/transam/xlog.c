@@ -844,6 +844,7 @@ XLogInsertRecord(XLogRecData *rdata,
 			Assert(RedoRecPtr < Insert->RedoRecPtr);
 			RedoRecPtr = Insert->RedoRecPtr;
 		}
+		/// 只要runningBackups > 0则必定为全页写。
 		doPageWrites = (Insert->fullPageWrites || Insert->runningBackups > 0);
 
 		if (doPageWrites &&
@@ -1414,7 +1415,7 @@ WALInsertLockAcquire(void)
  * to WAL.
  */
 static void
-WALInsertLockAcquireExclusive(void)
+WALInsertLockAcquireExclusive(void) /// 加锁，防止别的后台进程写WAL记录。
 {
 	int			i;
 
@@ -4091,7 +4092,7 @@ RemoveXlogFile(const struct dirent *segment_de,
  * plain directory would result in degraded performance with no notice.
  */
 static void
-ValidateXLOGDirectoryStructure(void) /// 检查pg_wal目录的状态，检查的地方都三个点。pg_wal是否存在，是否是目录？archive_status和summaries子目录是否存在？
+ValidateXLOGDirectoryStructure(void) /// 检查pg_wal目录的状态，检查的地方都三点。pg_wal是否存在，是否是目录？archive_status和summaries子目录是否存在？
 {
 	char		path[MAXPGPATH];
 	struct stat stat_buf;
@@ -5430,6 +5431,7 @@ StartupXLOG(void)
 	/*
 	 * Check that contents look valid.
 	 */
+	/// WAL文件按8KB划分，每页有24字节的头，第一页有40字节的头。
 	if (!XRecOffIsValid(ControlFile->checkPoint)) /// 检查一下控制文件中检查点的LSN是否处于合法的位置。
 		ereport(FATAL,
 				(errcode(ERRCODE_DATA_CORRUPTED),
@@ -5528,7 +5530,7 @@ StartupXLOG(void)
 		didCrash = true; /// disCrash的条件就是控制文件中的状态是否是两个干净关闭的值。
 	}
 	else
-		didCrash = false;
+		didCrash = false; /// 根据控制文件中的状态判断，DB_SHUTDOWNED表示干净地关闭。
 
 	/*
 	 * Prepare for WAL recovery if needed.
@@ -5540,7 +5542,7 @@ StartupXLOG(void)
 	 */
 	InitWalRecovery(ControlFile, &wasShutdown,
 					&haveBackupLabel, &haveTblspcMap);
-	checkPoint = ControlFile->checkPointCopy;
+	checkPoint = ControlFile->checkPointCopy; /// 获得CheckPoint的WAL记录。
 
 	/* initialize shared memory variables from the checkpoint record */
 	TransamVariables->nextXid = checkPoint.nextXid;
@@ -5658,13 +5660,13 @@ StartupXLOG(void)
 	else
 		pgstat_restore_stats();
 
-	lastFullPageWrites = checkPoint.fullPageWrites;
+	lastFullPageWrites = checkPoint.fullPageWrites; /// 检查点WAL记录中全页写的设置
 
 	RedoRecPtr = XLogCtl->RedoRecPtr = XLogCtl->Insert.RedoRecPtr = checkPoint.redo;
 	doPageWrites = lastFullPageWrites;
 
 	/* REDO */
-	if (InRecovery)
+	if (InRecovery) /// 只有InRecovery为true时才执行恢复操作。
 	{
 		/* Initialize state for RecoveryInProgress() */
 		SpinLockAcquire(&XLogCtl->info_lck);
@@ -5692,7 +5694,7 @@ StartupXLOG(void)
 		 * to the backup start point.  It seems prudent though to just rename
 		 * the file out of the way rather than delete it completely.
 		 */
-		if (haveBackupLabel)
+		if (haveBackupLabel) /// 如果有backup_label文件，就把它改个名字，防止下次再次使用。
 		{
 			unlink(BACKUP_LABEL_OLD);
 			durable_rename(BACKUP_LABEL_FILE, BACKUP_LABEL_OLD, FATAL);
@@ -6328,15 +6330,20 @@ PerformRecoveryXLogAction(void)
  * Unlike testing InRecovery, this works in any process that's connected to
  * shared memory.
  */
+<<<<<<< HEAD
 bool /// 判断数据库是否处于恢复模式，true为恢复模式，false不非恢复模式。
 RecoveryInProgress(void)
+=======
+bool
+RecoveryInProgress(void) /// 判断恢复是否正在进行中。
+>>>>>>> a2b80c547b59c8e7546c6e712c1d948e91c3edbd
 {
 	/*
 	 * We check shared state each time only until we leave recovery mode. We
 	 * can't re-enter recovery, so there's no need to keep checking after the
 	 * shared variable has once been seen false.
 	 */
-	if (!LocalRecoveryInProgress)
+	if (!LocalRecoveryInProgress) /// 这个变量记录本数据库集群是否处于恢复模式。
 		return false;
 	else
 	{
@@ -6367,7 +6374,7 @@ RecoveryInProgress(void)
 RecoveryState
 GetRecoveryState(void)
 {
-	RecoveryState retval;
+	RecoveryState retval; /// 这是一个枚举类型 typedef enum RecoveryState
 
 	SpinLockAcquire(&XLogCtl->info_lck);
 	retval = XLogCtl->SharedRecoveryState;
@@ -6397,14 +6404,14 @@ XLogInsertAllowed(void)
 	/*
 	 * Else, must check to see if we're still in recovery.
 	 */
-	if (RecoveryInProgress())
+	if (RecoveryInProgress()) /// 如果数据库集群处于恢复模式，是不允许插入新的WAL记录的。
 		return false;
 
 	/*
 	 * On exit from recovery, reset to "unconditionally true", since there is
 	 * no need to keep checking.
 	 */
-	LocalXLogInsertAllowed = 1;
+	LocalXLogInsertAllowed = 1; /// 如果数据库集群不是处于恢复模式，就是无条件可以插入WAL记录。
 	return true;
 }
 
@@ -6417,7 +6424,7 @@ XLogInsertAllowed(void)
  * Returns the previous value of LocalXLogInsertAllowed.
  */
 static int
-LocalSetXLogInsertAllowed(void)
+LocalSetXLogInsertAllowed(void) /// 读取并返回LocalXLogInsertAllowed的当前值，并设置LocalXLogInsertAllowed为1。
 {
 	int			oldXLogAllowed = LocalXLogInsertAllowed;
 
@@ -6432,7 +6439,7 @@ LocalSetXLogInsertAllowed(void)
  * As a side-effect, the local RedoRecPtr copy is updated.
  */
 XLogRecPtr
-GetRedoRecPtr(void)
+GetRedoRecPtr(void) /// 就是读取共享内存中的值，如果这个值大于RedoRecPtr，就更新RedoRecPtr，并把它的值返回。
 {
 	XLogRecPtr	ptr;
 
@@ -6462,7 +6469,7 @@ GetRedoRecPtr(void)
  * re-check them against up-to-date values, while holding the WAL insert lock.
  */
 void
-GetFullPageWriteInfo(XLogRecPtr *RedoRecPtr_p, bool *doPageWrites_p)
+GetFullPageWriteInfo(XLogRecPtr *RedoRecPtr_p, bool *doPageWrites_p) /// 就是读取Redo点和是否支持全页写的两个全局变量。
 {
 	*RedoRecPtr_p = RedoRecPtr;
 	*doPageWrites_p = doPageWrites;
@@ -6477,7 +6484,7 @@ GetFullPageWriteInfo(XLogRecPtr *RedoRecPtr_p, bool *doPageWrites_p)
  * approximation is enough for the current usage of this function.
  */
 XLogRecPtr
-GetInsertRecPtr(void)
+GetInsertRecPtr(void) /// 就是读取共享内存中的某个值。
 {
 	XLogRecPtr	recptr;
 
@@ -6551,12 +6558,12 @@ GetWALInsertionTimeLineIfSet(void)
  * WALInsertLocks[i].lastImportantAt.
  */
 XLogRecPtr
-GetLastImportantRecPtr(void)
+GetLastImportantRecPtr(void) /// 这个函数的算法就是扫描WALInsertLocks数组，一共八个元素，找到里面最大的值。
 {
-	XLogRecPtr	res = InvalidXLogRecPtr;
+	XLogRecPtr	res = InvalidXLogRecPtr; /// #define InvalidXLogRecPtr	0
 	int			i;
 
-	for (i = 0; i < NUM_XLOGINSERT_LOCKS; i++)
+	for (i = 0; i < NUM_XLOGINSERT_LOCKS; i++) /// #define NUM_XLOGINSERT_LOCKS  8
 	{
 		XLogRecPtr	last_important;
 
@@ -6615,13 +6622,13 @@ ShutdownXLOG(int code, Datum arg)
 	/*
 	 * Signal walsenders to move to stopping state.
 	 */
-	WalSndInitStopping();
+	WalSndInitStopping(); /// 就是给所有的walsender进程发送SIGUSER1信号，要求所有的walsender进程都退出。
 
 	/*
 	 * Wait for WAL senders to be in stopping state.  This prevents commands
 	 * from writing new WAL.
 	 */
-	WalSndWaitStopping();
+	WalSndWaitStopping(); /// 这个函数执行完毕后，所有的walsender进程都处于正在关闭状态。
 
 	if (RecoveryInProgress())
 		CreateRestartPoint(CHECKPOINT_IS_SHUTDOWN | CHECKPOINT_IMMEDIATE);
@@ -6636,7 +6643,7 @@ ShutdownXLOG(int code, Datum arg)
 		if (XLogArchivingActive())
 			RequestXLogSwitch(false);
 
-		CreateCheckPoint(CHECKPOINT_IS_SHUTDOWN | CHECKPOINT_IMMEDIATE);
+		CreateCheckPoint(CHECKPOINT_IS_SHUTDOWN | CHECKPOINT_IMMEDIATE); /// 最后插入一条SHUTDOWN类型的检查点记录。
 	}
 }
 
@@ -6938,7 +6945,7 @@ CreateCheckPoint(int flags)
 	}
 
 	/* Begin filling in the checkpoint WAL record */
-	MemSet(&checkPoint, 0, sizeof(checkPoint));
+	MemSet(&checkPoint, 0, sizeof(checkPoint)); /// 先把这个数据结构清零
 	checkPoint.time = (pg_time_t) time(NULL);
 
 	/*
@@ -6946,7 +6953,7 @@ CreateCheckPoint(int flags)
 	 * pointer. This allows us to begin accumulating changes to assemble our
 	 * starting snapshot of locks and transactions.
 	 */
-	if (!shutdown && XLogStandbyInfoActive())
+	if (!shutdown && XLogStandbyInfoActive()) /// #define XLogStandbyInfoActive() (wal_level >= WAL_LEVEL_REPLICA)
 		checkPoint.oldestActiveXid = GetOldestActiveTransactionId();
 	else
 		checkPoint.oldestActiveXid = InvalidTransactionId;
@@ -6955,7 +6962,7 @@ CreateCheckPoint(int flags)
 	 * Get location of last important record before acquiring insert locks (as
 	 * GetLastImportantRecPtr() also locks WAL locks).
 	 */
-	last_important_lsn = GetLastImportantRecPtr();
+	last_important_lsn = GetLastImportantRecPtr(); /// 扫描一个数组，找到里面最大的LSN
 
 	/*
 	 * If this isn't a shutdown or forced checkpoint, and if there has been no
@@ -6965,7 +6972,7 @@ CreateCheckPoint(int flags)
 	if ((flags & (CHECKPOINT_IS_SHUTDOWN | CHECKPOINT_END_OF_RECOVERY |
 				  CHECKPOINT_FORCE)) == 0)
 	{
-		if (last_important_lsn == ControlFile->checkPoint)
+		if (last_important_lsn == ControlFile->checkPoint) /// 这个表示系统是空闲的，就啥也不做，避免插入重复的检查点记录。
 		{
 			END_CRIT_SECTION();
 			ereport(DEBUG1,
@@ -6991,7 +6998,7 @@ CreateCheckPoint(int flags)
 	/*
 	 * We must block concurrent insertions while examining insert state.
 	 */
-	WALInsertLockAcquireExclusive();
+	WALInsertLockAcquireExclusive(); /// 加锁，防止别的进程写WAL记录。
 
 	checkPoint.fullPageWrites = Insert->fullPageWrites;
 	checkPoint.wal_level = wal_level;
@@ -7606,11 +7613,11 @@ CreateRestartPoint(int flags)
 	 * Check that we're still in recovery mode. It's ok if we exit recovery
 	 * mode after this check, the restart point is valid anyway.
 	 */
-	if (!RecoveryInProgress())
+	if (!RecoveryInProgress()) /// 如果不是处于数据库恢复模式，就啥也不做。
 	{
 		ereport(DEBUG2,
 				(errmsg_internal("skipping restartpoint, recovery has already ended")));
-		return false;
+		return false; /// 返回值为false表示本次操作没有做。
 	}
 
 	/*
@@ -7627,7 +7634,7 @@ CreateRestartPoint(int flags)
 	 * restartpoint. It's assumed that flushing the buffers will do that as a
 	 * side-effect.
 	 */
-	if (XLogRecPtrIsInvalid(lastCheckPointRecPtr) ||
+	if (XLogRecPtrIsInvalid(lastCheckPointRecPtr) || /// #define XLogRecPtrIsInvalid(r)	((r) == InvalidXLogRecPtr) 不为0即为合法。
 		lastCheckPoint.redo <= ControlFile->checkPointCopy.redo)
 	{
 		ereport(DEBUG2,
@@ -8053,7 +8060,7 @@ RequestXLogSwitch(bool mark_unimportant)
 	XLogRecPtr	RecPtr;
 
 	/* XLOG SWITCH has no data */
-	XLogBeginInsert();
+	XLogBeginInsert(); /// XLOG SWITCH的WAL记录只有24字节的头，没有任何数据。
 
 	if (mark_unimportant)
 		XLogSetRecordFlags(XLOG_MARK_UNIMPORTANT);
@@ -8779,26 +8786,27 @@ issue_xlog_fsync(int fd, XLogSegNo segno, TimeLineID tli)
  * It is the responsibility of the caller of this function to verify the
  * permissions of the calling user!
  */
-void
+void /// pg_backup_start()函数的底层逻辑。
 do_pg_backup_start(const char *backupidstr, bool fast, List **tablespaces,
 				   BackupState *state, StringInfo tblspcmapfile)
 {
 	bool		backup_started_in_recovery;
 
 	Assert(state != NULL);
-	backup_started_in_recovery = RecoveryInProgress();
+	backup_started_in_recovery = RecoveryInProgress(); /// 判断本次备份是在主库上做的，还是在备库上做的。
 
 	/*
 	 * During recovery, we don't need to check WAL level. Because, if WAL
 	 * level is not sufficient, it's impossible to get here during recovery.
 	 */
-	if (!backup_started_in_recovery && !XLogIsNeeded())
+	/// backup_started_in_recovery = false表明是在主库上做备份，这个时候再检查wal_level是否是replica或者logical
+	if (!backup_started_in_recovery && !XLogIsNeeded()) /// #define XLogIsNeeded() (wal_level >= WAL_LEVEL_REPLICA)
 		ereport(ERROR,
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
 				 errmsg("WAL level not sufficient for making an online backup"),
 				 errhint("\"wal_level\" must be set to \"replica\" or \"logical\" at server start.")));
 
-	if (strlen(backupidstr) > MAXPGPATH)
+	if (strlen(backupidstr) > MAXPGPATH) /// 字符串不能太长 #define MAXPGPATH		1024
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg("backup label too long (max %d bytes)",
@@ -8827,8 +8835,9 @@ do_pg_backup_start(const char *backupidstr, bool fast, List **tablespaces,
 	 * runningBackups, to ensure adequate interlocking against
 	 * XLogInsertRecord().
 	 */
+	/// 如果runningBackups > 0，则为全页写。
 	WALInsertLockAcquireExclusive();
-	XLogCtl->Insert.runningBackups++;
+	XLogCtl->Insert.runningBackups++; /// 这个值如果是大于0，则表明有一个备份在执行。后面的pg_backup_stop会让这个值减一。
 	WALInsertLockRelease();
 
 	/*
@@ -8865,10 +8874,10 @@ do_pg_backup_start(const char *backupidstr, bool fast, List **tablespaces,
 		 * the backup taken during recovery is not available for the special
 		 * recovery case described above.
 		 */
-		if (!backup_started_in_recovery)
+		if (!backup_started_in_recovery) /// 如果是在主库上做备份，则先切换一下WAL文件。
 			RequestXLogSwitch(false);
 
-		do
+		do /// 走到这里，gotUniqueStartpoint = false
 		{
 			bool		checkpointfpw;
 
@@ -8891,8 +8900,9 @@ do_pg_backup_start(const char *backupidstr, bool fast, List **tablespaces,
 			 * passing fast = true).  Otherwise this can take awhile.
 			 */
 			RequestCheckpoint(CHECKPOINT_FORCE | CHECKPOINT_WAIT |
-							  (fast ? CHECKPOINT_IMMEDIATE : 0));
+							  (fast ? CHECKPOINT_IMMEDIATE : 0)); /// 请求检查点，并且等待它结束。
 
+			/// 走到这一步，检查点就执行完毕了。
 			/*
 			 * Now we need to fetch the checkpoint record location, and also
 			 * its REDO pointer.  The oldest point in WAL that would be needed
@@ -8903,10 +8913,10 @@ do_pg_backup_start(const char *backupidstr, bool fast, List **tablespaces,
 			state->checkpointloc = ControlFile->checkPoint;
 			state->startpoint = ControlFile->checkPointCopy.redo;
 			state->starttli = ControlFile->checkPointCopy.ThisTimeLineID;
-			checkpointfpw = ControlFile->checkPointCopy.fullPageWrites;
+			checkpointfpw = ControlFile->checkPointCopy.fullPageWrites; /// 从控制文件中读取全页写的信息。
 			LWLockRelease(ControlFileLock);
 
-			if (backup_started_in_recovery)
+			if (backup_started_in_recovery) /// 如果是在备库上做备份。
 			{
 				XLogRecPtr	recptr;
 
@@ -9082,16 +9092,16 @@ do_pg_backup_start(const char *backupidstr, bool fast, List **tablespaces,
 	/*
 	 * Mark that the start phase has correctly finished for the backup.
 	 */
-	sessionBackupState = SESSION_BACKUP_RUNNING;
+	sessionBackupState = SESSION_BACKUP_RUNNING; /// 设置一个状态。
 }
 
 /*
  * Utility routine to fetch the session-level status of a backup running.
  */
 SessionBackupState
-get_backup_status(void)
+get_backup_status(void) /// 获取本会话是否处于备份模式的信息。
 {
-	return sessionBackupState;
+	return sessionBackupState; /// 这是一个状态变量，由do_pg_backup_start()设置，在do_pg_backup_stop()中被重置。
 }
 
 /*
@@ -9495,7 +9505,7 @@ IsInstallXLogFileSegmentActive(void)
  * Update the WalWriterSleeping flag.
  */
 void
-SetWalWriterSleeping(bool sleeping)
+SetWalWriterSleeping(bool sleeping) /// 就是往共享内存中写一个布尔变量。
 {
 	SpinLockAcquire(&XLogCtl->info_lck);
 	XLogCtl->WalWriterSleeping = sleeping;

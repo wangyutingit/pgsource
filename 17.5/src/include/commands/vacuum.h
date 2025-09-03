@@ -282,7 +282,7 @@ struct VacuumCutoffs
  * VacDeadItemsInfo stores supplemental information for dead tuple TID
  * storage (i.e. TidStore).
  */
-typedef struct VacDeadItemsInfo
+typedef struct VacDeadItemsInfo /// 为死亡数组提供额外的信息
 {
 	size_t		max_bytes;		/* the maximum bytes TidStore can use */
 	int64		num_items;		/* current # of entries */

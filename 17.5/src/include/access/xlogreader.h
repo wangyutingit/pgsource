@@ -69,7 +69,7 @@ typedef void (*WALSegmentOpenCB) (XLogReaderState *xlogreader,
 								  TimeLineID *tli_p);
 typedef void (*WALSegmentCloseCB) (XLogReaderState *xlogreader);
 
-typedef struct XLogReaderRoutine
+typedef struct XLogReaderRoutine /// 这个结构就是三个函数指针，open, read, close
 {
 	/*
 	 * Data input callback
@@ -177,7 +177,7 @@ struct XLogReaderState
 	/*
 	 * Operational callbacks
 	 */
-	XLogReaderRoutine routine;
+	XLogReaderRoutine routine; /// 三个函数指针，分别对应open, read和close。
 
 	/* ----------------------------------------
 	 * Public parameters

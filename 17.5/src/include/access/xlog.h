@@ -67,7 +67,7 @@ typedef enum ArchiveMode
 extern PGDLLIMPORT int XLogArchiveMode;
 
 /* WAL levels */
-typedef enum WalLevel
+typedef enum WalLevel /// 就三种可能性。
 {
 	WAL_LEVEL_MINIMAL = 0,
 	WAL_LEVEL_REPLICA,

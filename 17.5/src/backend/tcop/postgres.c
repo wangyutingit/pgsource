@@ -4383,7 +4383,7 @@ PostgresMain(const char *dbname, const char *username)
 	 */
 	MessageContext = AllocSetContextCreate(TopMemoryContext,
 										   "MessageContext",
-										   ALLOCSET_DEFAULT_SIZES);
+										   ALLOCSET_DEFAULT_SIZES); /// MessageContext每次循环都会重置，确保不会有内存泄露。
 
 	/*
 	 * Create memory context and buffer used for RowDescription messages. As
@@ -4546,7 +4546,7 @@ PostgresMain(const char *dbname, const char *username)
 	 * Non-error queries loop here.
 	 */
 
-	for (;;)
+	for (;;) /// 无限循环
 	{
 		int			firstchar;
 		StringInfoData input_message;
@@ -4569,7 +4569,7 @@ PostgresMain(const char *dbname, const char *username)
 		 * query input buffer in the cleared MessageContext.
 		 */
 		MemoryContextSwitchTo(MessageContext);
-		MemoryContextReset(MessageContext);
+		MemoryContextReset(MessageContext); /// 每次都重置MessageContext的内存池。
 
 		initStringInfo(&input_message);
 

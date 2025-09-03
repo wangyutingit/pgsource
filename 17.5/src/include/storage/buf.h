@@ -34,7 +34,7 @@ typedef int Buffer;
  * BufferIsLocal
  *		True iff the buffer is local (not visible to other backends).
  */
-#define BufferIsLocal(buffer)	((buffer) < 0)
+#define BufferIsLocal(buffer)	((buffer) < 0) /// buffer是一个整型，小于零即为local的数据页
 
 /*
  * Buffer access strategy objects.

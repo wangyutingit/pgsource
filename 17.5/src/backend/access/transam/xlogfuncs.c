@@ -58,12 +58,12 @@ pg_backup_start(PG_FUNCTION_ARGS)
 	text	   *backupid = PG_GETARG_TEXT_PP(0);
 	bool		fast = PG_GETARG_BOOL(1);
 	char	   *backupidstr;
-	SessionBackupState status = get_backup_status();
+	SessionBackupState status = get_backup_status(); /// typedef enum SessionBackupState，只有两种状态
 	MemoryContext oldcontext;
 
 	backupidstr = text_to_cstring(backupid);
 
-	if (status == SESSION_BACKUP_RUNNING)
+	if (status == SESSION_BACKUP_RUNNING) /// 说明有一个备份已经在运行中了。
 		ereport(ERROR,
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
 				 errmsg("a backup is already in progress in this session")));
@@ -434,7 +434,7 @@ pg_walfile_name_offset(PG_FUNCTION_ARGS)
  * such as is returned by pg_backup_stop() or pg_switch_wal().
  */
 Datum
-pg_walfile_name(PG_FUNCTION_ARGS)
+pg_walfile_name(PG_FUNCTION_ARGS) /// SELECT pg_walfile_name('ABC/12345DEF'); 返回结果：0000000100000ABC00000012
 {
 	XLogSegNo	xlogsegno;
 	XLogRecPtr	locationpoint = PG_GETARG_LSN(0);
@@ -447,9 +447,9 @@ pg_walfile_name(PG_FUNCTION_ARGS)
 				 errhint("%s cannot be executed during recovery.",
 						 "pg_walfile_name()")));
 
-	XLByteToSeg(locationpoint, xlogsegno, wal_segment_size);
+	XLByteToSeg(locationpoint, xlogsegno, wal_segment_size); /// 根据LSN计算所在的WAL文件的编号
 	XLogFileName(xlogfilename, GetWALInsertionTimeLine(), xlogsegno,
-				 wal_segment_size);
+				 wal_segment_size); /// 根据编号计算逻辑文件的编号和段文件的编号，再加上时间线，三部分齐活了，可以构造WAL文件名。
 
 	PG_RETURN_TEXT_P(cstring_to_text(xlogfilename));
 }
@@ -673,7 +673,7 @@ pg_promote(PG_FUNCTION_ARGS)
 	FILE	   *promote_file;
 	int			i;
 
-	if (!RecoveryInProgress())
+	if (!RecoveryInProgress()) /// prompt只能在备库上做。
 		ereport(ERROR,
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
 				 errmsg("recovery is not in progress"),
@@ -685,7 +685,7 @@ pg_promote(PG_FUNCTION_ARGS)
 				 errmsg("\"wait_seconds\" must not be negative or zero")));
 
 	/* create the promote signal file */
-	promote_file = AllocateFile(PROMOTE_SIGNAL_FILE, "w");
+	promote_file = AllocateFile(PROMOTE_SIGNAL_FILE, "w"); /// #define PROMOTE_SIGNAL_FILE		"promote"
 	if (!promote_file)
 		ereport(ERROR,
 				(errcode_for_file_access(),
@@ -699,7 +699,7 @@ pg_promote(PG_FUNCTION_ARGS)
 						PROMOTE_SIGNAL_FILE)));
 
 	/* signal the postmaster */
-	if (kill(PostmasterPid, SIGUSR1) != 0)
+	if (kill(PostmasterPid, SIGUSR1) != 0) /// 先写promote文件，再向postmaster主进程发送SIGUSR1信号。
 	{
 		(void) unlink(PROMOTE_SIGNAL_FILE);
 		ereport(ERROR,
@@ -719,7 +719,7 @@ pg_promote(PG_FUNCTION_ARGS)
 
 		ResetLatch(MyLatch);
 
-		if (!RecoveryInProgress())
+		if (!RecoveryInProgress()) /// 如果备库变成了主库，就跳出循环。
 			PG_RETURN_BOOL(true);
 
 		CHECK_FOR_INTERRUPTS();

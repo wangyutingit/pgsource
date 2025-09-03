@@ -60,10 +60,10 @@
 #include "storage/large_object.h"
 
 static ControlFileData ControlFile; /* pg_control values */
-static XLogSegNo newXlogSegNo;	/* new XLOG segment # */
-static bool guessed = false;	/* T if we had to guess at any values */
+static XLogSegNo newXlogSegNo;	/* new XLOG segment # */ /// typedef uint64 XLogSegNo;
+static bool guessed = false;	/* T if we had to guess at any values */ /// 如果需要猜测，这个变量为true。
 static const char *progname;
-static uint32 set_xid_epoch = (uint32) -1;
+static uint32 set_xid_epoch = (uint32) -1; /// 0xFFFFFFFF
 static TransactionId set_oldest_xid = 0;
 static TransactionId set_xid = 0;
 static TransactionId set_oldest_commit_ts_xid = 0;
@@ -110,7 +110,7 @@ main(int argc, char *argv[])
 	};
 
 	int			c;
-	bool		force = false;
+	bool		force = false;  /// 用户是否使用了-f参数。
 	bool		noupdate = false;
 	MultiXactId set_oldestmxid = 0;
 	char	   *endptr;
@@ -121,10 +121,11 @@ main(int argc, char *argv[])
 
 	pg_logging_init(argv[0]);
 	set_pglocale_pgservice(argv[0], PG_TEXTDOMAIN("pg_resetwal"));
-	progname = get_progname(argv[0]);
+	progname = get_progname(argv[0]); /// progname 的值是“pg_resetwal"。
 
 	if (argc > 1)
 	{
+		/// 这部分逻辑很简单。
 		if (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-?") == 0)
 		{
 			usage();
@@ -147,7 +148,7 @@ main(int argc, char *argv[])
 				break;
 
 			case 'f':
-				force = true;
+				force = true; /// 处于强制模式
 				break;
 
 			case 'n':
@@ -321,7 +322,7 @@ main(int argc, char *argv[])
 		exit(1);
 	}
 
-	if (DataDir == NULL)
+	if (DataDir == NULL) /// 如果找不到指定的数据库目录，就退出程序。
 	{
 		pg_log_error("no data directory specified");
 		pg_log_error_hint("Try \"%s --help\" for more information.", progname);
@@ -335,7 +336,7 @@ main(int argc, char *argv[])
 	 * the data directory.
 	 */
 #ifndef WIN32
-	if (geteuid() == 0)
+	if (geteuid() == 0) /// 禁止用root用户运行本程序。
 	{
 		pg_log_error("cannot be executed by \"root\"");
 		pg_log_error_hint("You must run %s as the PostgreSQL superuser.",
@@ -353,20 +354,22 @@ main(int argc, char *argv[])
 
 	umask(pg_mode_mask);
 
-	if (chdir(DataDir) < 0)
+	if (chdir(DataDir) < 0) /// 把本进程的当前目录切换到数据库集群目录。
 		pg_fatal("could not change directory to \"%s\": %m",
 				 DataDir);
 
 	/* Check that data directory matches our server version */
-	CheckDataVersion();
+	CheckDataVersion(); /// 检查PG_VERSION里面的版本号是否匹配。
 
 	/*
 	 * Check for a postmaster lock file --- if there is one, refuse to
 	 * proceed, on grounds we might be interfering with a live installation.
 	 */
+	/// 通过检查postmaster.pid是否存在来判断数据库实例是否正常运行。
+	/// pg_resetwal必须是在关闭数据库实例的前提下才能执行。
 	if ((fd = open("postmaster.pid", O_RDONLY, 0)) < 0)
 	{
-		if (errno != ENOENT)
+		if (errno != ENOENT) /// ENOENT表示该文件不存在，这是正常情况。
 			pg_fatal("could not open file \"%s\" for reading: %m",
 					 "postmaster.pid");
 	}
@@ -380,7 +383,7 @@ main(int argc, char *argv[])
 	/*
 	 * Attempt to read the existing pg_control file
 	 */
-	if (!read_controlfile())
+	if (!read_controlfile()) /// 如果读取控制文件失败，就猜测各种参数。
 		GuessControlValues();
 
 	/*
@@ -389,7 +392,7 @@ main(int argc, char *argv[])
 	if (set_wal_segsize != 0)
 		WalSegSz = set_wal_segsize;
 	else
-		WalSegSz = ControlFile.xlog_seg_size;
+		WalSegSz = ControlFile.xlog_seg_size; /// 如果没有在参数里指定，就用控制文件中的值。通常是16777216，即16MB.
 
 	if (log_fname != NULL)
 		XLogFromFileName(log_fname, &minXlogTli, &minXlogSegNo, WalSegSz);
@@ -397,7 +400,7 @@ main(int argc, char *argv[])
 	/*
 	 * Also look at existing segment files to set up newXlogSegNo
 	 */
-	FindEndOfXLOG();
+	FindEndOfXLOG(); /// 这个函数执行完毕后，newXlogSegNo包含在pg_wal目录下找到的最大的WAL文件的编号加一。
 
 	/*
 	 * If we're not going to proceed with the reset, print the current control
@@ -491,11 +494,12 @@ main(int argc, char *argv[])
 	/*
 	 * Else, do the dirty deed.
 	 */
-	RewriteControlFile();
-	KillExistingXLOG();
-	KillExistingArchiveStatus();
-	KillExistingWALSummaries();
-	WriteEmptyXLOG();
+	RewriteControlFile(); /// 重写控制文件
+	KillExistingXLOG();   /// 删除pg_wal目录下所有的WAL文件
+	KillExistingArchiveStatus(); /// 删除pg_wal/archive_status目录下的文件
+	KillExistingWALSummaries();  /// 删除pg_wal/summaries目录下的文件
+	WriteEmptyXLOG(); /// 创建一个新的WAL文件，它的编号比pg_wal目录下任何一个WAL文件的编号多一。
+	/// 在这个文件中写入一条CheckPoint的WAL记录。
 
 	printf(_("Write-ahead log reset\n"));
 	return 0;
@@ -515,7 +519,7 @@ main(int argc, char *argv[])
  * to prevent simple user errors.
  */
 static void
-CheckDataVersion(void)
+CheckDataVersion(void) /// 就是读取PG_VERSION里的值和软件本身写死的值进行对比，相同就继续往下走，否则就报错退出。
 {
 	const char *ver_file = "PG_VERSION";
 	FILE	   *ver_fd;
@@ -537,7 +541,7 @@ CheckDataVersion(void)
 	/* strip trailing newline and carriage return */
 	(void) pg_strip_crlf(rawline);
 
-	if (strcmp(rawline, PG_MAJORVERSION) != 0)
+	if (strcmp(rawline, PG_MAJORVERSION) != 0) /// src/include/pg_config.h:#define PG_MAJORVERSION "18"
 	{
 		pg_log_error("data directory is of wrong version");
 		pg_log_error_detail("File \"%s\" contains \"%s\", which is not compatible with this program's version \"%s\".",
@@ -563,7 +567,7 @@ read_controlfile(void)
 	char	   *buffer;
 	pg_crc32c	crc;
 
-	if ((fd = open(XLOG_CONTROL_FILE, O_RDONLY | PG_BINARY, 0)) < 0)
+	if ((fd = open(XLOG_CONTROL_FILE, O_RDONLY | PG_BINARY, 0)) < 0) /// #define XLOG_CONTROL_FILE	"global/pg_control"
 	{
 		/*
 		 * If pg_control is not there at all, or we can't read it, the odds
@@ -581,15 +585,17 @@ read_controlfile(void)
 	}
 
 	/* Use malloc to ensure we have a maxaligned buffer */
-	buffer = (char *) pg_malloc(PG_CONTROL_FILE_SIZE);
-
-	len = read(fd, buffer, PG_CONTROL_FILE_SIZE);
+	buffer = (char *) pg_malloc(PG_CONTROL_FILE_SIZE); /// #define PG_CONTROL_FILE_SIZE		8192
+	/// 一口气读入8192字节到内存。
+	len = read(fd, buffer, PG_CONTROL_FILE_SIZE); /// 正常情况下，len的值是8192
 	if (len < 0)
 		pg_fatal("could not read file \"%s\": %m", XLOG_CONTROL_FILE);
 	close(fd);
 
 	if (len >= sizeof(ControlFileData) &&
 		((ControlFileData *) buffer)->pg_control_version == PG_CONTROL_VERSION)
+		/// #define PG_CONTROL_VERSION	1700 检查控制文件的版本。
+
 	{
 		/* Check the CRC. */
 		INIT_CRC32C(crc);
@@ -598,17 +604,19 @@ read_controlfile(void)
 					offsetof(ControlFileData, crc));
 		FIN_CRC32C(crc);
 
-		if (!EQ_CRC32C(crc, ((ControlFileData *) buffer)->crc))
+		if (!EQ_CRC32C(crc, ((ControlFileData *) buffer)->crc)) /// crc是四字节的校验码
 		{
 			/* We will use the data but treat it as guessed. */
 			pg_log_warning("pg_control exists but has invalid CRC; proceed with caution");
 			guessed = true;
+			/// 因为控制文件的信息校验码不对，就要猜测控制文件的内容。
 		}
 
-		memcpy(&ControlFile, buffer, sizeof(ControlFile));
+		/// 走到这里，CRC32校验码是对的，可以认为控制文件被可靠地读取出来了。
+		memcpy(&ControlFile, buffer, sizeof(ControlFile)); /// 把控制文件的内容拷贝到ControlFile结构中。
 
 		/* return false if WAL segment size is not valid */
-		if (!IsValidWalSegSize(ControlFile.xlog_seg_size))
+		if (!IsValidWalSegSize(ControlFile.xlog_seg_size)) /// 三个检查条件，1MB和1GB之间，且是2的指数。
 		{
 			pg_log_warning(ngettext("pg_control specifies invalid WAL segment size (%d byte); proceed with caution",
 									"pg_control specifies invalid WAL segment size (%d bytes); proceed with caution",
@@ -630,7 +638,7 @@ read_controlfile(void)
  * Guess at pg_control values when we can't read the old ones.
  */
 static void
-GuessControlValues(void)
+GuessControlValues(void) /// 就是往ControlFile这个结构中插入一些写死的值
 {
 	uint64		sysidentifier;
 	struct timeval tv;
@@ -642,7 +650,7 @@ GuessControlValues(void)
 	memset(&ControlFile, 0, sizeof(ControlFile));
 
 	ControlFile.pg_control_version = PG_CONTROL_VERSION;
-	ControlFile.catalog_version_no = CATALOG_VERSION_NO;
+	ControlFile.catalog_version_no = CATALOG_VERSION_NO; /// #define CATALOG_VERSION_NO	202406281
 
 	/*
 	 * Create a new unique installation identifier, since we can no longer use
@@ -651,7 +659,7 @@ GuessControlValues(void)
 	gettimeofday(&tv, NULL);
 	sysidentifier = ((uint64) tv.tv_sec) << 32;
 	sysidentifier |= ((uint64) tv.tv_usec) << 12;
-	sysidentifier |= getpid() & 0xFFF;
+	sysidentifier |= getpid() & 0xFFF; /// 随机产生一个8字节的系统标识符。
 
 	ControlFile.system_identifier = sysidentifier;
 
@@ -671,7 +679,7 @@ GuessControlValues(void)
 	ControlFile.checkPointCopy.time = (pg_time_t) time(NULL);
 	ControlFile.checkPointCopy.oldestActiveXid = InvalidTransactionId;
 
-	ControlFile.state = DB_SHUTDOWNED;
+	ControlFile.state = DB_SHUTDOWNED; /// 表明本数据库是干净地关闭掉的。
 	ControlFile.time = (pg_time_t) time(NULL);
 	ControlFile.checkPoint = ControlFile.checkPointCopy.redo;
 	ControlFile.unloggedLSN = FirstNormalUnloggedLSN;
@@ -713,7 +721,7 @@ GuessControlValues(void)
  * reset by RewriteControlFile().
  */
 static void
-PrintControlValues(bool guessed)
+PrintControlValues(bool guessed) /// 这些是控制文件中不会被本程序改变的值。
 {
 	if (guessed)
 		printf(_("Guessed pg_control values:\n\n"));
@@ -864,11 +872,13 @@ RewriteControlFile(void)
 	 * Adjust fields as needed to force an empty XLOG starting at
 	 * newXlogSegNo.
 	 */
+	/// #define SizeOfXLogLongPHD	MAXALIGN(sizeof(XLogLongPageHeaderData)) 共计40个字节
 	XLogSegNoOffsetToRecPtr(newXlogSegNo, SizeOfXLogLongPHD, WalSegSz,
-							ControlFile.checkPointCopy.redo);
+							ControlFile.checkPointCopy.redo); 
+	/// 重新计算redo的LSN，就是下一个段文件的第一条WAL记录。
 	ControlFile.checkPointCopy.time = (pg_time_t) time(NULL);
 
-	ControlFile.state = DB_SHUTDOWNED;
+	ControlFile.state = DB_SHUTDOWNED; /// 设置数据库的状态为干净地关闭。
 	ControlFile.checkPoint = ControlFile.checkPointCopy.redo;
 	ControlFile.minRecoveryPoint = 0;
 	ControlFile.minRecoveryPointTLI = 0;
@@ -881,7 +891,7 @@ RewriteControlFile(void)
 	 * as long as wal_level='minimal'; the postmaster will reset these fields
 	 * anyway at startup.
 	 */
-	ControlFile.wal_level = WAL_LEVEL_MINIMAL;
+	ControlFile.wal_level = WAL_LEVEL_MINIMAL; /// 设置wal_level为WAL_LEVEL_MINIMAL
 	ControlFile.wal_log_hints = false;
 	ControlFile.track_commit_timestamp = false;
 	ControlFile.MaxConnections = 100;
@@ -891,7 +901,7 @@ RewriteControlFile(void)
 	ControlFile.max_locks_per_xact = 64;
 
 	/* The control file gets flushed here. */
-	update_controlfile(".", &ControlFile, true);
+	update_controlfile(".", &ControlFile, true); /// 写入控制文件
 }
 
 
@@ -915,6 +925,7 @@ FindEndOfXLOG(void)
 	 * old pg_control.  Note that for the moment we are working with segment
 	 * numbering according to the old xlog seg size.
 	 */
+	/// 根据控制文件中redo点的LSN来计算它所在的WAL文件的编号，结果放在newXlogSeqNo中。
 	XLByteToSeg(ControlFile.checkPointCopy.redo, newXlogSegNo,
 				ControlFile.xlog_seg_size);
 
@@ -927,7 +938,7 @@ FindEndOfXLOG(void)
 	if (xldir == NULL)
 		pg_fatal("could not open directory \"%s\": %m", XLOGDIR);
 
-	while (errno = 0, (xlde = readdir(xldir)) != NULL)
+	while (errno = 0, (xlde = readdir(xldir)) != NULL) /// 读取pg_wal目录下所有的合法的WAL文件
 	{
 		if (IsXLogFileName(xlde->d_name) ||
 			IsPartialXLogFileName(xlde->d_name))
@@ -937,7 +948,7 @@ FindEndOfXLOG(void)
 
 			/* Use the segment size from the control file */
 			XLogFromFileName(xlde->d_name, &tli, &segno,
-							 ControlFile.xlog_seg_size);
+							 ControlFile.xlog_seg_size); /// 计算出segno，这是一维的
 
 			/*
 			 * Note: we take the max of all files found, regardless of their
@@ -946,7 +957,7 @@ FindEndOfXLOG(void)
 			 * Better too large a result than too small...
 			 */
 			if (segno > newXlogSegNo)
-				newXlogSegNo = segno;
+				newXlogSegNo = segno; /// 获取最大的段文件编号。
 		}
 	}
 
@@ -970,23 +981,23 @@ FindEndOfXLOG(void)
  * Remove existing XLOG files
  */
 static void
-KillExistingXLOG(void)
+KillExistingXLOG(void) /// 删除pg_wal目录下所有的WAL文件
 {
 	DIR		   *xldir;
 	struct dirent *xlde;
 	char		path[MAXPGPATH + sizeof(XLOGDIR)];
 
-	xldir = opendir(XLOGDIR);
+	xldir = opendir(XLOGDIR); /// #define XLOGDIR				"pg_wal"
 	if (xldir == NULL)
 		pg_fatal("could not open directory \"%s\": %m", XLOGDIR);
 
 	while (errno = 0, (xlde = readdir(xldir)) != NULL)
 	{
 		if (IsXLogFileName(xlde->d_name) ||
-			IsPartialXLogFileName(xlde->d_name))
+			IsPartialXLogFileName(xlde->d_name)) /// 如果某个文件名符合WAL文件的特征，就删除它。
 		{
 			snprintf(path, sizeof(path), "%s/%s", XLOGDIR, xlde->d_name);
-			if (unlink(path) < 0)
+			if (unlink(path) < 0) /// 删除这个文件。
 				pg_fatal("could not delete file \"%s\": %m", path);
 		}
 	}
@@ -1076,11 +1087,11 @@ KillExistingWALSummaries(void)
  * already set up in ControlFile.
  */
 static void
-WriteEmptyXLOG(void)
+WriteEmptyXLOG(void) /// 构造一个WAL文件，里面只包含CheckPoint的WAL记录。
 {
-	PGAlignedXLogBlock buffer;
-	XLogPageHeader page;
-	XLogLongPageHeader longpage;
+	PGAlignedXLogBlock buffer; /// buffer里面的data成员变量本身就包含了8KB的内存，所以不需要再申请了。
+	XLogPageHeader page; /// 每8KB的块头
+	XLogLongPageHeader longpage; /// WAL文件第一个8KB的块头
 	XLogRecord *record;
 	pg_crc32c	crc;
 	char		path[MAXPGPATH];
@@ -1088,33 +1099,33 @@ WriteEmptyXLOG(void)
 	int			nbytes;
 	char	   *recptr;
 
-	memset(buffer.data, 0, XLOG_BLCKSZ);
+	memset(buffer.data, 0, XLOG_BLCKSZ); /// 把本page全部清零
 
 	/* Set up the XLOG page header */
 	page = (XLogPageHeader) buffer.data;
-	page->xlp_magic = XLOG_PAGE_MAGIC;
+	page->xlp_magic = XLOG_PAGE_MAGIC; /// 两字节的魔幻数，版本号：#define XLOG_PAGE_MAGIC 0xD116
 	page->xlp_info = XLP_LONG_HEADER;
 	page->xlp_tli = ControlFile.checkPointCopy.ThisTimeLineID;
 	page->xlp_pageaddr = ControlFile.checkPointCopy.redo - SizeOfXLogLongPHD;
 	longpage = (XLogLongPageHeader) page;
 	longpage->xlp_sysid = ControlFile.system_identifier;
 	longpage->xlp_seg_size = WalSegSz;
-	longpage->xlp_xlog_blcksz = XLOG_BLCKSZ;
+	longpage->xlp_xlog_blcksz = XLOG_BLCKSZ; /// 走到这里构造了两个块头。
 
 	/* Insert the initial checkpoint record */
-	recptr = (char *) page + SizeOfXLogLongPHD;
+	recptr = (char *) page + SizeOfXLogLongPHD; /// recptr指向了本WAL文件的第一条WAL记录的LSN
 	record = (XLogRecord *) recptr;
 	record->xl_prev = 0;
 	record->xl_xid = InvalidTransactionId;
 	record->xl_tot_len = SizeOfXLogRecord + SizeOfXLogRecordDataHeaderShort + sizeof(CheckPoint);
-	record->xl_info = XLOG_CHECKPOINT_SHUTDOWN;
+	record->xl_info = XLOG_CHECKPOINT_SHUTDOWN; /// 这是一条数据库关闭的CheckPoint记录。
 	record->xl_rmid = RM_XLOG_ID;
 
 	recptr += SizeOfXLogRecord;
 	*(recptr++) = (char) XLR_BLOCK_ID_DATA_SHORT;
 	*(recptr++) = sizeof(CheckPoint);
 	memcpy(recptr, &ControlFile.checkPointCopy,
-		   sizeof(CheckPoint));
+		   sizeof(CheckPoint)); /// 把控制文件中的CheckPoint信息写入到该WAL记录中。
 
 	INIT_CRC32C(crc);
 	COMP_CRC32C(crc, ((char *) record) + SizeOfXLogRecord, record->xl_tot_len - SizeOfXLogRecord);
@@ -1124,9 +1135,9 @@ WriteEmptyXLOG(void)
 
 	/* Write the first page */
 	XLogFilePath(path, ControlFile.checkPointCopy.ThisTimeLineID,
-				 newXlogSegNo, WalSegSz);
+				 newXlogSegNo, WalSegSz); /// 根据newXLogSegNo形成WAL文件的文件名，保存在path中。
 
-	unlink(path);
+	unlink(path); /// 先删除这个WAL文件。
 
 	fd = open(path, O_RDWR | O_CREAT | O_EXCL | PG_BINARY,
 			  pg_file_create_mode);
@@ -1134,7 +1145,7 @@ WriteEmptyXLOG(void)
 		pg_fatal("could not open file \"%s\": %m", path);
 
 	errno = 0;
-	if (write(fd, buffer.data, XLOG_BLCKSZ) != XLOG_BLCKSZ)
+	if (write(fd, buffer.data, XLOG_BLCKSZ) != XLOG_BLCKSZ) /// 先写第一个8KB
 	{
 		/* if write didn't set errno, assume problem is no disk space */
 		if (errno == 0)
@@ -1143,7 +1154,7 @@ WriteEmptyXLOG(void)
 	}
 
 	/* Fill the rest of the file with zeroes */
-	memset(buffer.data, 0, XLOG_BLCKSZ);
+	memset(buffer.data, 0, XLOG_BLCKSZ); /// 再写WAL文件剩下的部分，全部变成0。
 	for (nbytes = XLOG_BLCKSZ; nbytes < WalSegSz; nbytes += XLOG_BLCKSZ)
 	{
 		errno = 0;

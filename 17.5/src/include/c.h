@@ -480,7 +480,7 @@ typedef unsigned char bool;
  *		XXX Pointer arithmetic is done with this, so it can't be void *
  *		under "true" ANSI compilers.
  */
-typedef char *Pointer;
+typedef char *Pointer; /// 非常简单，就是指向一块内存的指针。
 
 /*
  * intN

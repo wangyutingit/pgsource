@@ -77,7 +77,7 @@ shell_archive_file(ArchiveModuleState *state, const char *file,
 
 	fflush(NULL);
 	pgstat_report_wait_start(WAIT_EVENT_ARCHIVE_COMMAND);
-	rc = system(xlogarchcmd);
+	rc = system(xlogarchcmd); /// 调用system系统调用来完成归档。
 	pgstat_report_wait_end();
 
 	if (rc != 0)

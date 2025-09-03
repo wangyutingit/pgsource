@@ -46,8 +46,8 @@ usage(const char *progname)
 }
 
 
-static const char *
-dbState(DBState state)
+static const char * /// 根据枚举类型的状态，返回一个字符串，表示其含义。
+dbState(DBState state) /// typedef enum DBState
 {
 	switch (state)
 	{
@@ -69,8 +69,8 @@ dbState(DBState state)
 	return _("unrecognized status code");
 }
 
-static const char *
-wal_level_str(WalLevel wal_level)
+static const char * /// 根据枚举类型的值返回对应的字符串。
+wal_level_str(WalLevel wal_level) /// typedef enum WalLevel
 {
 	switch (wal_level)
 	{
@@ -103,7 +103,7 @@ main(int argc, char *argv[])
 	char		mock_auth_nonce_str[MOCK_AUTH_NONCE_LEN * 2 + 1];
 	const char *strftime_fmt = "%c";
 	const char *progname;
-	char		xlogfilename[MAXFNAMELEN];
+	char		xlogfilename[MAXFNAMELEN]; /// #define MAXFNAMELEN		64
 	int			c;
 	int			i;
 	int			WalSegSz;
@@ -146,7 +146,7 @@ main(int argc, char *argv[])
 		if (optind < argc)
 			DataDir = argv[optind++];
 		else
-			DataDir = getenv("PGDATA");
+			DataDir = getenv("PGDATA"); /// 如果用户没有提供数据库集群的目录，读取PGDATA环境变量中的值。
 	}
 
 	/* Complain if any arguments remain */
@@ -158,7 +158,7 @@ main(int argc, char *argv[])
 		exit(1);
 	}
 
-	if (DataDir == NULL)
+	if (DataDir == NULL) /// 走到这里，DataDir应该包含非空的值。
 	{
 		pg_log_error("no data directory specified");
 		pg_log_error_hint("Try \"%s --help\" for more information.", progname);
@@ -224,7 +224,9 @@ main(int argc, char *argv[])
 	{
 		XLogSegNo	segno;
 
+		/// 输入的参数是1和3，输出参数是2，即segno
 		XLByteToSeg(ControlFile->checkPointCopy.redo, segno, WalSegSz);
+		/// 构造xlogfilename
 		XLogFileName(xlogfilename, ControlFile->checkPointCopy.ThisTimeLineID,
 					 segno, WalSegSz);
 	}
@@ -248,7 +250,7 @@ main(int argc, char *argv[])
 	printf(_("Latest checkpoint location:           %X/%X\n"),
 		   LSN_FORMAT_ARGS(ControlFile->checkPoint));
 	printf(_("Latest checkpoint's REDO location:    %X/%X\n"),
-		   LSN_FORMAT_ARGS(ControlFile->checkPointCopy.redo));
+		   LSN_FORMAT_ARGS(ControlFile->checkPointCopy.redo)); /// 从CheckPoint的WAL记录中读取
 	printf(_("Latest checkpoint's REDO WAL file:    %s\n"),
 		   xlogfilename);
 	printf(_("Latest checkpoint's TimeLineID:       %u\n"),

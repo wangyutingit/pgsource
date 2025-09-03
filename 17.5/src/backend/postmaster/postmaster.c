@@ -1266,7 +1266,7 @@ PostmasterMain(int argc, char *argv[]) /// 这里是真正的主进程入口函�
 	 * Record postmaster options.  We delay this till now to avoid recording
 	 * bogus options (eg, unusable port number).
 	 */
-	if (!CreateOptsFile(argc, argv, my_exec_path))
+	if (!CreateOptsFile(argc, argv, my_exec_path)) /// 创建postmaster.opts文件。如果失败就退出整个进程。
 		ExitPostmaster(1);
 
 	/*
@@ -1637,9 +1637,9 @@ ServerLoop(void)
 	int			nevents;
 
 	ConfigurePostmasterWaitSet(true);
-	last_lockfile_recheck_time = last_touch_time = time(NULL);
+	last_lockfile_recheck_time = last_touch_time = time(NULL); /// 获取当前时间
 
-	for (;;)
+	for (;;) /// 无限循环
 	{
 		time_t		now;
 
@@ -1653,10 +1653,10 @@ ServerLoop(void)
 		 * Latch set by signal handler, or new connection pending on any of
 		 * our sockets? If the latter, fork a child process to deal with it.
 		 */
-		for (int i = 0; i < nevents; i++)
+		for (int i = 0; i < nevents; i++) /// 扫描事件数组
 		{
 			if (events[i].events & WL_LATCH_SET)
-				ResetLatch(MyLatch);
+				ResetLatch(MyLatch); /// 重置latch
 
 			/*
 			 * The following requests are handled unconditionally, even if we
@@ -1679,7 +1679,7 @@ ServerLoop(void)
 				ClientSocket s;
 
 				if (AcceptConnection(events[i].fd, &s) == STATUS_OK)
-					BackendStartup(&s);
+					BackendStartup(&s); /// 在这里启动postgres进程？
 
 				/* We no longer need the open socket in this process */
 				if (s.sock != PGINVALID_SOCKET)
@@ -1700,7 +1700,7 @@ ServerLoop(void)
 		 * fails, we'll just try again later.  Likewise for the checkpointer.
 		 */
 		if (pmState == PM_RUN || pmState == PM_RECOVERY ||
-			pmState == PM_HOT_STANDBY || pmState == PM_STARTUP)
+			pmState == PM_HOT_STANDBY || pmState == PM_STARTUP) /// 处于初始状态时尝试启动checkpointer和bgwriter进程。
 		{
 			if (CheckpointerPID == 0)
 				CheckpointerPID = StartChildProcess(B_CHECKPOINTER);
@@ -1726,7 +1726,7 @@ ServerLoop(void)
 			(AutoVacuumingActive() || start_autovac_launcher) &&
 			pmState == PM_RUN)
 		{
-			AutoVacPID = StartChildProcess(B_AUTOVAC_LAUNCHER);
+			AutoVacPID = StartChildProcess(B_AUTOVAC_LAUNCHER); /// 启动autovacuum launcher进程。
 			if (AutoVacPID != 0)
 				start_autovac_launcher = false; /* signal processed */
 		}
@@ -1960,7 +1960,7 @@ canAcceptConnections(int backend_type)
  * the global variable yet when this is called.
  */
 void
-ClosePostmasterPorts(bool am_syslogger)
+ClosePostmasterPorts(bool am_syslogger) /// am_syslogger表明该子进程是否是syslogger，这个子进程需要特殊处理一下。
 {
 	/* Release resources held by the postmaster's WaitEventSet. */
 	if (pm_wait_set)
@@ -2013,7 +2013,7 @@ ClosePostmasterPorts(bool am_syslogger)
 	if (!am_syslogger)
 	{
 #ifndef WIN32
-		if (syslogPipe[0] >= 0)
+		if (syslogPipe[0] >= 0) /// 管道这块要处理一下。
 			close(syslogPipe[0]);
 		syslogPipe[0] = -1;
 #else
@@ -2037,7 +2037,7 @@ ClosePostmasterPorts(bool am_syslogger)
  * Called early in the postmaster and every backend.
  */
 void
-InitProcessGlobals(void) /// 记录启动时间，产生随机数
+InitProcessGlobals(void) /// 记录启动时间，产生随机数， 比较简单的初始化工作。
 {
 	/// 调用gettimeofday()获得时间信息
 	MyStartTimestamp = GetCurrentTimestamp(); /// backend/utils/init/globals.c:TimestampTz MyStartTimestamp;
@@ -3598,9 +3598,10 @@ BackendStartup(ClientSocket *client_sock)
 	/* Hasn't asked to be notified about any bgworkers yet */
 	bn->bgworker_notify = false;
 
-	pid = postmaster_child_launch(B_BACKEND,
+	pid = postmaster_child_launch(B_BACKEND, /// [B_BACKEND] = {"backend", BackendMain, true}, 所以子进程的入口函数是BackendMain
 								  (char *) &startup_data, sizeof(startup_data),
 								  client_sock);
+	/// 子进程的BackendMain会调用PostgresMain
 	if (pid < 0)
 	{
 		/* in parent, fork failed */
@@ -3626,7 +3627,7 @@ BackendStartup(ClientSocket *client_sock)
 	 * of backends.
 	 */
 	bn->pid = pid;
-	bn->bkend_type = BACKEND_TYPE_NORMAL;	/* Can change later to WALSND */
+	bn->bkend_type = BACKEND_TYPE_NORMAL;	/* Can change later to WALSND */ /// walsender和postgres进程本质上就是一回事。
 	dlist_push_head(&BackendList, &bn->elem);
 
 #ifdef EXEC_BACKEND
@@ -3710,7 +3711,7 @@ ExitPostmaster(int status) /// 退出postmaster主进程，会在本进程退出
 static void
 process_pm_pmsignal(void)
 {
-	pending_pm_pmsignal = false;
+	pending_pm_pmsignal = false; /// 重新置位
 
 	ereport(DEBUG2,
 			(errmsg_internal("postmaster received pmsignal signal")));
@@ -3811,6 +3812,10 @@ process_pm_pmsignal(void)
 		start_autovac_launcher = true;
 	}
 
+
+	/// autovacuum launcher进程决定要启动一个autovacuum worker进程时，会向postmaster
+	/// 主进程发送PMSIGNAL_START_AUTOVAC_WORKER信号，通过kill(postmasterPID, SIGUSR1)
+	/// 来实现的。
 	if (CheckPostmasterSignal(PMSIGNAL_START_AUTOVAC_WORKER) &&
 		Shutdown <= SmartShutdown && pmState < PM_STOP_BACKENDS)
 	{
@@ -3841,10 +3846,10 @@ process_pm_pmsignal(void)
 		PostmasterStateMachine();
 	}
 
-	if (StartupPID != 0 &&
+	if (StartupPID != 0 && /// 这表明Startup进程正在运行中。
 		(pmState == PM_STARTUP || pmState == PM_RECOVERY ||
 		 pmState == PM_HOT_STANDBY) &&
-		CheckPromoteSignal())
+		CheckPromoteSignal()) /// CheckPromoteSignal()检查promote文件是否存在，如果存在就返回true。
 	{
 		/*
 		 * Tell startup process to finish recovery.
@@ -4081,7 +4086,7 @@ MaybeStartWalSummarizer(void)
 	if (summarize_wal && WalSummarizerPID == 0 &&
 		(pmState == PM_RUN || pmState == PM_HOT_STANDBY) &&
 		Shutdown <= SmartShutdown)
-		WalSummarizerPID = StartChildProcess(B_WAL_SUMMARIZER);
+		WalSummarizerPID = StartChildProcess(B_WAL_SUMMARIZER); /// WalSumarizePID只在这里赋值。
 }
 
 
@@ -4104,7 +4109,7 @@ MaybeStartSlotSyncWorker(void)
 }
 
 /*
- * Create the opts file
+ * Create the opts file /// 创建postmaster.opts文件
  */
 static bool
 CreateOptsFile(int argc, char *argv[], char *fullprogname)

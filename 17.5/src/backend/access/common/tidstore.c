@@ -165,24 +165,24 @@ TidStore *
 TidStoreCreateLocal(size_t max_bytes, bool insert_only)
 {
 	TidStore   *ts;
-	size_t		initBlockSize = ALLOCSET_DEFAULT_INITSIZE;
-	size_t		minContextSize = ALLOCSET_DEFAULT_MINSIZE;
-	size_t		maxBlockSize = ALLOCSET_DEFAULT_MAXSIZE;
+	size_t		initBlockSize = ALLOCSET_DEFAULT_INITSIZE; /// #define ALLOCSET_DEFAULT_INITSIZE  (8 * 1024)
+	size_t		minContextSize = ALLOCSET_DEFAULT_MINSIZE; /// #define ALLOCSET_DEFAULT_MINSIZE   0
+	size_t		maxBlockSize = ALLOCSET_DEFAULT_MAXSIZE;   /// #define ALLOCSET_DEFAULT_MAXSIZE   (8 * 1024 * 1024)
 
 	ts = palloc0(sizeof(TidStore));
-	ts->context = CurrentMemoryContext;
+	ts->context = CurrentMemoryContext; /// 先在当前内存池中分配TidStore的内存结构。
 
 	/* choose the maxBlockSize to be no larger than 1/16 of max_bytes */
-	while (16 * maxBlockSize > max_bytes)
+	while (16 * maxBlockSize > max_bytes) /// 设置maxBlockSize的值不要超过max_bytes的1/16。
 		maxBlockSize >>= 1;
 
 	if (maxBlockSize < ALLOCSET_DEFAULT_INITSIZE)
-		maxBlockSize = ALLOCSET_DEFAULT_INITSIZE;
+		maxBlockSize = ALLOCSET_DEFAULT_INITSIZE; /// maxBlockSize的下限是8KB.
 
 	/* Create a memory context for the TID storage */
 	if (insert_only)
 	{
-		ts->rt_context = BumpContextCreate(CurrentMemoryContext,
+		ts->rt_context = BumpContextCreate(CurrentMemoryContext, /// 按照和AllocSet不同的分配策略分配一个新的内存池。
 										   "TID storage",
 										   minContextSize,
 										   initBlockSize,

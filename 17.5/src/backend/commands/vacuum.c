@@ -62,7 +62,7 @@
 
 
 /*
- * GUC parameters
+ * GUC parameters /// 这些是vacuum的一些参数。
  */
 int			vacuum_freeze_min_age;
 int			vacuum_freeze_table_age;
@@ -144,7 +144,7 @@ check_vacuum_buffer_usage_limit(int *newval, void **extra,
  * happen in vacuum().
  */
 void
-ExecVacuum(ParseState *pstate, VacuumStmt *vacstmt, bool isTopLevel)
+ExecVacuum(ParseState *pstate, VacuumStmt *vacstmt, bool isTopLevel) /// 执行vacuum和analyze命令的入口函数。
 {
 	VacuumParams params;
 	BufferAccessStrategy bstrategy = NULL;
@@ -411,7 +411,7 @@ ExecVacuum(ParseState *pstate, VacuumStmt *vacstmt, bool isTopLevel)
 	 * Since it is a child of PortalContext, it will go away eventually even
 	 * if we suffer an error; there's no need for special abort cleanup logic.
 	 */
-	vac_context = AllocSetContextCreate(PortalContext,
+	vac_context = AllocSetContextCreate(PortalContext, /// 在PortalContext内存池下面创建子内存池vac_context.
 										"Vacuum",
 										ALLOCSET_DEFAULT_SIZES);
 
@@ -474,11 +474,14 @@ ExecVacuum(ParseState *pstate, VacuumStmt *vacstmt, bool isTopLevel)
  * It is the caller's responsibility that all parameters are allocated in a
  * memory context that will not disappear at transaction commit.
  */
-void
+/// 在autovacuum.c中的autovacuum_do_vac_analyze()函数中调用本函数：
+/// vacuum(rel_list, &tab->at_params, bstrategy, vac_context, true);
+/// 这个函数对一捆表进行操作。
+void 
 vacuum(List *relations, VacuumParams *params, BufferAccessStrategy bstrategy,
 	   MemoryContext vac_context, bool isTopLevel)
 {
-	static bool in_vacuum = false;
+	static bool in_vacuum = false; /// 注意这是一个static的变量，在下次函数调用时，它的值可能是true。
 
 	const char *stmttype;
 	volatile bool in_outer_xact,
@@ -509,7 +512,7 @@ vacuum(List *relations, VacuumParams *params, BufferAccessStrategy bstrategy,
 	 * FULL or ANALYZE calls a hostile index expression that itself calls
 	 * ANALYZE.
 	 */
-	if (in_vacuum)
+	if (in_vacuum) /// 不允许VACUUM和ANALYZE命令递归调用。
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				 errmsg("%s cannot be executed from VACUUM or ANALYZE",
@@ -564,7 +567,8 @@ vacuum(List *relations, VacuumParams *params, BufferAccessStrategy bstrategy,
 	else
 	{
 		Assert(params->options & VACOPT_ANALYZE);
-		if (AmAutoVacuumWorkerProcess())
+		/// 本函数可能被一个autovacuum worker进程执行
+		if (AmAutoVacuumWorkerProcess()) /// #define AmAutoVacuumWorkerProcess()	(MyBackendType == B_AUTOVAC_WORKER)
 			use_own_xacts = true;
 		else if (in_outer_xact)
 			use_own_xacts = false;
@@ -621,9 +625,10 @@ vacuum(List *relations, VacuumParams *params, BufferAccessStrategy bstrategy,
 			{
 				if (!vacuum_rel(vrel->oid, vrel->relation, params, bstrategy))
 					continue;
+				/// vacuum_rel是对一张表进行VACUUM操作，如果执行成功了，还要对其进行ANALYZE操作。
 			}
 
-			if (params->options & VACOPT_ANALYZE)
+			if (params->options & VACOPT_ANALYZE) /// 先VACUUM再ANALYZE。
 			{
 				/*
 				 * If using separate xacts, start one for analyze. Otherwise,
@@ -635,7 +640,7 @@ vacuum(List *relations, VacuumParams *params, BufferAccessStrategy bstrategy,
 					/* functions in indexes may want a snapshot set */
 					PushActiveSnapshot(GetTransactionSnapshot());
 				}
-
+				/// 对一张表进行ANALYZE。
 				analyze_rel(vrel->oid, vrel->relation, params,
 							vrel->va_cols, in_outer_xact, bstrategy);
 
@@ -1556,7 +1561,7 @@ vac_update_relstats(Relation relation,
 
 /*
  *	vac_update_datfrozenxid() -- update pg_database.datfrozenxid for our DB
- *
+ *  /// 更新系统表pg_database中的datfrozenxid这一列的值。
  *		Update pg_database's datfrozenxid entry for our database to be the
  *		minimum of the pg_class.relfrozenxid values.
  *
@@ -1942,7 +1947,7 @@ vac_truncate_clog(TransactionId frozenXID,
 
 
 /*
- *	vacuum_rel() -- vacuum one heap relation
+ *	vacuum_rel() -- vacuum one heap relation /// 对一张表进行VACUUM操作。
  *
  *		relid identifies the relation to vacuum.  If relation is supplied,
  *		use the name therein for reporting any failure to open/lock the rel;

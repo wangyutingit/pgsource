@@ -164,7 +164,7 @@ static bool recovery_signal_file_found = false;
  * reading the checkpoint record, because the REDO record can precede the
  * checkpoint record.
  */
-static XLogRecPtr CheckPointLoc = InvalidXLogRecPtr;
+static XLogRecPtr CheckPointLoc = InvalidXLogRecPtr; /// #define InvalidXLogRecPtr	0
 static TimeLineID CheckPointTLI = 0;
 static XLogRecPtr RedoStartLSN = InvalidXLogRecPtr;
 static TimeLineID RedoStartTLI = 0;
@@ -196,7 +196,7 @@ typedef struct XLogPageReadPrivate
 	int			emode;
 	bool		fetching_ckpt;	/* are we fetching a checkpoint record? */
 	bool		randAccess;
-	TimeLineID	replayTLI;
+	TimeLineID	replayTLI; /// typedef uint32 TimeLineID;
 } XLogPageReadPrivate;
 
 /* flag to tell XLogPageRead that we have started replaying */
@@ -228,7 +228,7 @@ static const char *const xlogSourceNames[] = {"any", "archive", "pg_wal", "strea
  * worthwhile, since the XLOG is not read by general-purpose sessions.
  */
 static int	readFile = -1;
-static XLogSegNo readSegNo = 0;
+static XLogSegNo readSegNo = 0;  /// typedef uint64 XLogSegNo;
 static uint32 readOff = 0;
 static uint32 readLen = 0;
 static XLogSource readSource = XLOG_FROM_ANY;
@@ -589,6 +589,7 @@ InitWalRecovery(ControlFileData *ControlFile, bool *wasShutdown_ptr,
 	 * process after checking for signal files and after performing validation
 	 * of the recovery parameters.
 	 */
+	/// 如果发现了backup_label文件。
 	if (read_backup_label(&CheckPointLoc, &CheckPointTLI, &backupEndRequired,
 						  &backupFromStandby))
 	{
@@ -628,6 +629,7 @@ InitWalRecovery(ControlFileData *ControlFile, bool *wasShutdown_ptr,
 		if (record != NULL)
 		{
 			memcpy(&checkPoint, XLogRecGetData(xlogreader), sizeof(CheckPoint));
+			/// 如果读取的是SHUTDOWN类型的CheckPoint,则wasShutdown = true
 			wasShutdown = ((record->xl_info & ~XLR_INFO_MASK) == XLOG_CHECKPOINT_SHUTDOWN);
 			ereport(DEBUG1,
 					(errmsg_internal("checkpoint record is at %X/%X",
@@ -701,7 +703,7 @@ InitWalRecovery(ControlFileData *ControlFile, bool *wasShutdown_ptr,
 		/* tell the caller to delete it later */
 		haveBackupLabel = true;
 	}
-	else
+	else /// 没有发现backup_label文件。
 	{
 		/* No backup_label file has been found if we are here. */
 
@@ -893,7 +895,7 @@ InitWalRecovery(ControlFileData *ControlFile, bool *wasShutdown_ptr,
 				(errmsg("invalid next transaction ID")));
 
 	/* sanity check */
-	if (checkPoint.redo > CheckPointLoc)
+	if (checkPoint.redo > CheckPointLoc) /// redo点是不可能大于CheckPoint的WAL记录的LSN的。 
 		ereport(PANIC,
 				(errmsg("invalid redo in checkpoint record")));
 
@@ -904,7 +906,7 @@ InitWalRecovery(ControlFileData *ControlFile, bool *wasShutdown_ptr,
 	 */
 	if (checkPoint.redo < CheckPointLoc)
 	{
-		if (wasShutdown)
+		if (wasShutdown) /// 当CheckPoint的类型是SHUTDOWN类型，redo == CheckPointLoc
 			ereport(PANIC,
 					(errmsg("invalid redo record in shutdown checkpoint")));
 		InRecovery = true;
@@ -1011,6 +1013,7 @@ InitWalRecovery(ControlFileData *ControlFile, bool *wasShutdown_ptr,
 	abortedRecPtr = InvalidXLogRecPtr;
 	missingContrecPtr = InvalidXLogRecPtr;
 
+	/// 最后是返回三个输出结果的参数。
 	*wasShutdown_ptr = wasShutdown;
 	*haveBackupLabel_ptr = haveBackupLabel;
 	*haveTblspcMap_ptr = haveTblspcMap;
@@ -4465,12 +4468,12 @@ RemovePromoteSignalFiles(void) /// 就是调用unlink系统函数删除promote�
  * Check to see if a promote request has arrived.
  */
 bool
-CheckPromoteSignal(void)
+CheckPromoteSignal(void) /// 就是检查promote文件是否存在
 {
 	struct stat stat_buf;
 
-	if (stat(PROMOTE_SIGNAL_FILE, &stat_buf) == 0)
-		return true;
+	if (stat(PROMOTE_SIGNAL_FILE, &stat_buf) == 0) /// #define PROMOTE_SIGNAL_FILE		"promote"
+		return true; /// 如果存在就返回true，否则返回false。
 
 	return false;
 }

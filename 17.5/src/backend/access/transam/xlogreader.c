@@ -110,7 +110,7 @@ XLogReaderAllocate(int wal_segment_size, const char *waldir,
 
 	state = (XLogReaderState *)
 		palloc_extended(sizeof(XLogReaderState),
-						MCXT_ALLOC_NO_OOM | MCXT_ALLOC_ZERO);
+						MCXT_ALLOC_NO_OOM | MCXT_ALLOC_ZERO); /// 分配一块内存，并把该内存的内容清零。
 	if (!state)
 		return NULL;
 
@@ -228,7 +228,7 @@ WALOpenSegmentInit(WALOpenSegment *seg, WALSegmentContext *segcxt,
  * will error out.
  */
 void
-XLogBeginRead(XLogReaderState *state, XLogRecPtr RecPtr)
+XLogBeginRead(XLogReade	rState *state, XLogRecPtr RecPtr)
 {
 	Assert(!XLogRecPtrIsInvalid(RecPtr));
 
@@ -252,7 +252,7 @@ XLogReleasePreviousRecord(XLogReaderState *state)
 	XLogRecPtr	next_lsn;
 
 	if (!state->record)
-		return InvalidXLogRecPtr;
+		return InvalidXLogRecPtr;	
 
 	/*
 	 * Remove it from the decoded record queue.  It must be the oldest item

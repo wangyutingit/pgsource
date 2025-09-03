@@ -132,7 +132,7 @@ typedef struct ControlFileData /// 控制文件中的内容
 	pg_time_t	time;			/* time stamp of last pg_control update */
 	XLogRecPtr	checkPoint;		/* last check point record ptr */
 
-	CheckPoint	checkPointCopy; /* copy of last check point record */
+	CheckPoint	checkPointCopy; /* copy of last check point record */ /// 包含CheckPoint的WAL记录。
 
 	XLogRecPtr	unloggedLSN;	/* current fake LSN value, for unlogged rels */
 
@@ -226,10 +226,10 @@ typedef struct ControlFileData /// 控制文件中的内容
 	 * based on values that are cluster-unique, like a SASL exchange that
 	 * failed at an early stage.
 	 */
-	char		mock_authentication_nonce[MOCK_AUTH_NONCE_LEN];
+	char		mock_authentication_nonce[MOCK_AUTH_NONCE_LEN]; /// #define MOCK_AUTH_NONCE_LEN		32
 
 	/* CRC of all above ... MUST BE LAST! */
-	pg_crc32c	crc;
+	pg_crc32c	crc; /// typedef uint32 pg_crc32c; 四字节的校验码，必须放在最后。
 } ControlFileData;
 
 /*
