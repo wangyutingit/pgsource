@@ -160,13 +160,14 @@ static MemoryContext uploaded_manifest_mcxt = NULL;
 static TimeLineID sendTimeLine = 0;
 static TimeLineID sendTimeLineNextTLI = 0;
 static bool sendTimeLineIsHistoric = false;
-static XLogRecPtr sendTimeLineValidUpto = InvalidXLogRecPtr;
+static XLogRecPtr sendTimeLineValidUpto = InvalidXLogRecPtr; /// #define InvalidXLogRecPtr	0
+
 
 /*
  * How far have we sent WAL already? This is also advertised in
  * MyWalSnd->sentPtr.  (Actually, this is the next WAL location to send.)
  */
-static XLogRecPtr sentPtr = InvalidXLogRecPtr;
+static XLogRecPtr sentPtr = InvalidXLogRecPtr; /// #define InvalidXLogRecPtr	0
 
 /* Buffers for constructing outgoing messages and processing reply messages. */
 static StringInfoData output_message;
@@ -281,7 +282,7 @@ static void WalSndSegmentOpen(XLogReaderState *state, XLogSegNo nextSegNo,
 void
 InitWalSender(void)
 {
-	am_cascading_walsender = RecoveryInProgress();
+	am_cascading_walsender = RecoveryInProgress(); /// 数据库处于备库时该变量为true，
 
 	/* Create a per-walsender data structure in shared memory */
 	InitWalSenderSlot();
@@ -307,9 +308,9 @@ InitWalSender(void)
 	 * databases.  This allows physical replication clients to send hot
 	 * standby feedback that will delay vacuum cleanup in all databases.
 	 */
-	if (MyDatabaseId == InvalidOid)
+	if (MyDatabaseId == InvalidOid) /// #define InvalidOid		((Oid) 0)
 	{
-		Assert(MyProc->xmin == InvalidTransactionId);
+		Assert(MyProc->xmin == InvalidTransactionId); /// #define InvalidTransactionId		((TransactionId) 0)
 		LWLockAcquire(ProcArrayLock, LW_EXCLUSIVE);
 		MyProc->statusFlags |= PROC_AFFECTS_ALL_HORIZONS;
 		ProcGlobal->statusFlags[MyProc->pgxactoff] = MyProc->statusFlags;
@@ -335,7 +336,7 @@ WalSndErrorCleanup(void)
 	pgstat_report_wait_end();
 
 	if (xlogreader != NULL && xlogreader->seg.ws_file >= 0)
-		wal_segment_close(xlogreader);
+		wal_segment_close(xlogreader); /// 就是把ws_file的文件句柄close掉。
 
 	if (MyReplicationSlot != NULL)
 		ReplicationSlotRelease();
@@ -428,7 +429,7 @@ IdentifySystem(void)
 	 */
 
 	snprintf(sysid, sizeof(sysid), UINT64_FORMAT,
-			 GetSystemIdentifier());
+			 GetSystemIdentifier()); /// 从控制文件中读取
 
 	am_cascading_walsender = RecoveryInProgress();
 	if (am_cascading_walsender)
@@ -3836,7 +3837,7 @@ WalSndWaitStopping(void)
 
 /* Set state for current walsender (only called in walsender) */
 void
-WalSndSetState(WalSndState state)
+WalSndSetState(WalSndState state) /// 设置WALSender进程的状态，就是更改共享内存中的值。
 {
 	WalSnd	   *walsnd = MyWalSnd;
 
@@ -3855,7 +3856,7 @@ WalSndSetState(WalSndState state)
  * in system views, and should *not* be translated.
  */
 static const char *
-WalSndGetStateString(WalSndState state)
+WalSndGetStateString(WalSndState state) /// 根据状态返回一个对应的字符串。
 {
 	switch (state)
 	{

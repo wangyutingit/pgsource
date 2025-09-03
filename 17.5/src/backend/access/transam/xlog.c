@@ -4538,7 +4538,7 @@ UpdateControlFile(void)
  * Returns the unique system identifier from control file.
  */
 uint64
-GetSystemIdentifier(void)
+GetSystemIdentifier(void) /// 返回控制文件中8字节的系统标识符。
 {
 	Assert(ControlFile != NULL);
 	return ControlFile->system_identifier;
@@ -6328,7 +6328,7 @@ PerformRecoveryXLogAction(void)
  * Unlike testing InRecovery, this works in any process that's connected to
  * shared memory.
  */
-bool
+bool /// 判断数据库是否处于恢复模式，true为恢复模式，false不非恢复模式。
 RecoveryInProgress(void)
 {
 	/*
